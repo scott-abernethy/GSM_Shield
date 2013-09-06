@@ -7,10 +7,11 @@
 #ifndef __GSM_Shield
 #define __GSM_Shield
 
+#include "Arduino.h"
+#include <avr/pgmspace.h>
 #include <SoftwareSerial.h>
-#include <Arduino.h>
 
-#define GSM_LIB_VERSION 102 // library version X.YY (e.g. 1.00)
+#define GSM_LIB_VERSION 103 // library version X.YY (e.g. 1.00)
 
 // if defined - debug print is enabled with possibility to print out 
 // debug texts to the terminal program
@@ -21,7 +22,7 @@
 //#define DEBUG_GSMRX
 
 // if defined - debug LED is enabled, otherwise debug LED is disabled
-//#define DEBUG_LED_ENABLED
+#define DEBUG_LED_ENABLED
 
 // if defined - SMSs are not send(are finished by the character 0x1b
 // which causes that SMS are not send)
@@ -30,8 +31,8 @@
 
 
 // pins definition
-#define GSM_ON              6 // connect GSM Module turn ON to pin 77 
-#define GSM_RESET           7 // connect GSM Module RESET to pin 35
+#define GSM_ON              8 // connect GSM Module turn ON to pin 77 
+#define GSM_RESET           9 // connect GSM Module RESET to pin 35
 //#define DTMF_OUTPUT_ENABLE  71 // connect DTMF Output Enable not used
 #define DTMF_DATA_VALID     14 // connect DTMF Data Valid to pin 14
 #define DTMF_DATA0          72 // connect DTMF Data0 to pin 72
@@ -210,6 +211,7 @@ class GSM
 
     // SMS's methods 
     char SendSMS(char *number_str, char *message_str);
+    char SendSMS(const __FlashStringHelper *number_str, char *message_str);
     char SendSMS(byte sim_phonebook_position, char *message_str);
     char IsSMSPresent(byte required_status);
     char GetSMS(byte position, char *phone_number, char *SMS_text, byte max_SMS_len);
@@ -222,19 +224,23 @@ class GSM
     char WritePhoneNumber(byte position, char *phone_number);
 	char DelPhoneNumber(byte position);
     char ComparePhoneNumber(byte position, char *phone_number);
-
+    // Date time
+    char GetDateTime(char *date_time);
 
     // routines regarding communication with the GSM module
     void RxInit(uint16_t start_comm_tmout, uint16_t max_interchar_tmout);
     byte IsRxFinished(void);
-    byte IsStringReceived(char const *compare_string);
+    byte IsStringReceived(const __FlashStringHelper *compare_string);
+    byte IsStringReceivedTest(const __FlashStringHelper *compare_string);
     byte WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout);
     byte WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout, 
-                  char const *expected_resp_string);
-    char SendATCmdWaitResp(char const *AT_cmd_string,
-               uint16_t start_comm_tmout, uint16_t max_interchar_tmout,
-               char const *response_string,
-               byte no_of_attempts);
+	    const __FlashStringHelper *expected_resp_string);
+    char SendATCmdWaitResp(
+	const __FlashStringHelper *AT_cmd_string,
+	uint16_t start_comm_tmout,
+	uint16_t max_interchar_tmout,
+	const __FlashStringHelper *response_string,
+	byte no_of_attempts);
 			   
 	// new routine  TDGINO by Boris
 	
@@ -243,8 +249,11 @@ class GSM
 
 
     // debug methods
+
 #ifdef DEBUG_LED_ENABLED
     void BlinkDebugLED (byte num_of_blink);
+    void LEDOn ();
+    void LEDOff ();
 #endif
 
 #ifdef DEBUG_PRINT
