@@ -390,7 +390,7 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout)
                         Serial.println();			
 		}
                 else {
-                      Serial.println("DEBUG: <<??");
+                      Serial.println("DEBUG: <<TIMEOUT");
                 }
 	#endif
     
@@ -613,23 +613,27 @@ void GSM::TurnOn(void)
 //Serial.println("AT+COPS?"); // Network operators read command -- +COPS: 0,0,"2degrees"
 //delay(1000);
 
-// eg ***REMOVED***
-byte GSM::GetICCID(char *id_string)
-{
-  byte ret_val = -1;
+void GSM::ReadBuffer(char *into, int offset, int length) {
   byte *p_start;
   byte *p_end;
+
+  p_start = &comm_buf[0];
+  p_start = p_start + offset;
+  p_end = p_start + length;
+  *p_end = 0;
+  strcpy(into, (char *)(p_start));
+}
+
+// eg ***REMOVED***
+byte GSM::GetICCID(char *id_string) {
+  byte ret_val = -1;
   id_string[0] = 0x00;
 
   if (CLS_FREE != GetCommLineStatus()) return 0;
   SetCommLineStatus(CLS_ATCMD);
 
   if (AT_RESP_OK == SendATCmdWaitResp(F("AT+CCID"), 500, 50, F("OK"), 5)) {
-    p_start = &comm_buf[0];
-    p_start = p_start+2; // cr lf
-    p_end = p_start+20; // we are on the first phone number character
-    *p_end = 0; // end of string
-    strcpy(id_string, (char *)(p_start));
+    ReadBuffer(id_string, 2, 20);
     ret_val = 1;
   }
   else {
@@ -658,11 +662,13 @@ void GSM::InitParam(byte group)
 #endif
 
       // Reset to the factory settings
-      //SendATCmdWaitResp(F("AT&F"), 1000, 50, F("OK"), 5);
+      SendATCmdWaitResp(F("AT&F"), 1000, 50, F("OK"), 5);
       // switch off echo
       SendATCmdWaitResp(F("ATE0"), 500, 50, F("OK"), 5);
       // setup fixed baud rate
       SendATCmdWaitResp(F("AT+IPR=9600"), 500, 50, F("OK"), 5);
+      // turn off ip mode
+      SendATCmdWaitResp(F("AT+SAPBR=0,1"), 900, 100, F("OK"), 2);
       // setup mode
       //SendATCmdWaitResp("AT#SELINT=1", 500, 50, "OK", 5);
       // Switch ON User LED - just as signalization we are here
@@ -799,16 +805,16 @@ byte GSM::CheckRegistration(void)
   if (CLS_FREE != GetCommLineStatus()) return (REG_COMM_LINE_BUSY);
   SetCommLineStatus(CLS_ATCMD);
   Serial.println(F("AT+CREG?"));
-  
+
   status = WaitResp(5000, 200); 
 
   if (status == RX_FINISHED) {
-    if (IsStringReceived(F("+CREG: 0,1")) 
+    if (IsStringReceived(F("+CREG: 0,1"))
       || IsStringReceived(F("+CREG: 0,5"))) {
       // it means module is registered
       // ----------------------------
       module_status |= STATUS_REGISTERED;
-    
+
       // in case GSM module is registered first time after reset
       // sets flag STATUS_INITIALIZED
       // it is used for sending some init commands which 
@@ -2319,4 +2325,68 @@ void GSM::Echo(byte state)
     delay(500);
     SetCommLineStatus(CLS_FREE);
   }
+}
+
+void GSM::SetupGPRS() {
+  // 2 degrees APN is internet, no user, no password
+  SendATCmdWaitResp(F("AT+SAPBR=3,1,\"APN\",\"internet\""), 900, 500, F("OK"), 2);
+  /* SendATCmdWaitResp(F("AT+SAPBR=3,1,\"USER\",\"yourUser\""), 900, 500, F("OK"), 2); */
+  /* SendATCmdWaitResp(F("AT+SAPBR=3,1,\"PWD\",\"yourPwd\""), 900, 500, F("OK"), 2); */
+  SendATCmdWaitResp(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\""), 900, 500, F("OK"), 2);
+}
+
+void GSM::TestGPRS() {
+  SendATCmdWaitResp(F("AT+SAPBR=2,1"), 900, 900, F("OK"), 5); // query bearer
+  //+SAPBR: 1,3,"0.0.0.0" --> closed
+  //+SAPBR: 1,1,"***REMOVED***" --> open
+  if (!IsStringReceived(F("+SAPBR: 1,1"))) {
+    SendATCmdWaitResp(F("AT+SAPBR=1,1"), 20000, 900, F("OK"), 5); // open bearer
+  }
+
+  SendATCmdWaitResp(F("AT+SAPBR=2,1"), 900, 900, F("OK"), 5); // query bearer
+  if (IsStringReceived(F("+SAPBR: 1,1"))) {
+    Serial.println("Bearer is open");
+
+      SendATCmdWaitResp(F("AT+HTTPINIT"), 900, 500, F("OK"), 5);
+      SendATCmdWaitResp(F("AT+HTTPPARA=\"CID\",\"1\""), 900, 500, F("OK"), 5);
+
+      SendATCmdWaitResp(F("AT+HTTPPARA=\"URL\",\"***REMOVED***:8333/echo\""), 900, 500, F("OK"), 2);
+      SendATCmdWaitResp(F("AT+HTTPACTION=0"), 1500, 500, F("OK"), 2); //now GET action , or 1 for POST , or 2 for HEAD
+      if (RX_FINISHED_STR_RECV == WaitResp(20000, 50, F("+HTTPACTION:0,200"))) {
+        // TODO get the bytes length from the previous response, rather than just getting 1000 bytes
+        if (AT_RESP_OK == SendATCmdWaitResp(F("AT+HTTPREAD=0,1000"), 1500, 500, F("OK"), 2)) {
+          Serial.println("!!! !!! !!! Response !!! !!! !!!");
+          // <CR><LF>+HTTPREAD:5<CR><LF>DATAHERE<CR><LF>OK
+
+          char *p_start;
+          char *p_end;
+          char result[255];
+
+          result[0] = 0x00;
+
+          p_start = strchr((char *)(comm_buf), ':');
+          p_start = strchr((char *)(p_start), 0x0d);
+          p_start = p_start + 2;
+          p_end = strchr((char *)(p_start), 0x0d);
+          *p_end = 0;
+          strcpy(result, (char *)(p_start));
+
+          Serial.print("<<");
+          Serial.print(result);
+          Serial.println(">>");
+
+        }
+      }
+
+//HTTPDATA
+
+// got OK +HTTPACTION:0,601,0  --> get, network error, no data
+// +HTTPACTION:0,200,5 --> get, ok, 5 bytes of data
+//+HTTPREAD:5
+
+      // stop
+      SendATCmdWaitResp(F("AT+HTTPTERM"), 900, 500, F("OK"), 5);
+    }
+
+    //SendATCmdWaitResp(F("AT+SAPBR=0,1"), 900, 500, F("OK"), 5); // close bearer
 }

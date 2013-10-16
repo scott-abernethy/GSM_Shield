@@ -205,24 +205,27 @@ class GSM
     char GetDateTime(char *date_time);
 
     // routines regarding communication with the GSM module
+    void ReadBuffer(char *into, int offset, int length);
     void RxInit(uint16_t start_comm_tmout, uint16_t max_interchar_tmout);
     byte IsRxFinished(void);
     byte IsStringReceived(const __FlashStringHelper *compare_string);
     byte IsStringReceivedTest(const __FlashStringHelper *compare_string);
     byte WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout);
-    byte WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout, 
-	    const __FlashStringHelper *expected_resp_string);
+    byte WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout, const __FlashStringHelper *expected_resp_string);
     char SendATCmdWaitResp(
-	const __FlashStringHelper *AT_cmd_string,
-	uint16_t start_comm_tmout,
-	uint16_t max_interchar_tmout,
-	const __FlashStringHelper *response_string,
-	byte no_of_attempts);
-			   
-	// new routine  TDGINO by Boris
-	
-	//echo
-	void Echo(byte state);
+        const __FlashStringHelper *AT_cmd_string,
+        uint16_t start_comm_tmout,
+        uint16_t max_interchar_tmout,
+        const __FlashStringHelper *response_string,
+        byte no_of_attempts);
+
+    // new routine  TDGINO by Boris
+
+    //echo
+    void Echo(byte state);
+
+    void SetupGPRS(void);
+    void TestGPRS(void);
 
     // debug methods
 
@@ -244,7 +247,6 @@ class GSM
     byte module_status;
 
     // variables connected with communication buffer
-    
     byte *p_comm_buf;               // pointer to the communication buffer
     byte comm_buf_len;              // num. of characters in the buffer
     byte rx_state;                  // internal state of rx state machine    
