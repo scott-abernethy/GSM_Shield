@@ -2349,7 +2349,16 @@ void GSM::SetupGPRS() {
   SendATCmdWaitResp(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\""), 900, 500, F("OK"), 2);
 }
 
+
 byte GSM::HttpGet(const char *url, char *result) {
+  return HttpOperation(F("AT+HTTPACTION=0"), F("+HTTPACTION:0,200"), url, result);
+}
+
+byte GSM::HttpPost(const char *urlp, char *result) {
+  return HttpOperation(F("AT+HTTPACTION=1"), F("+HTTPACTION:1,200"), urlp, result);
+}
+
+byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper *respcode, const char *url, char *result) {
   result[0] = 0x00;
   byte res_code = HTTP_FAIL;
 
@@ -2373,8 +2382,8 @@ byte GSM::HttpGet(const char *url, char *result) {
       Serial.println(F("\""));
       WaitResp(900, 500, F("OK"));
       //SendATCmdWaitResp(F("AT+HTTPPARA=\"URL\",\"***REMOVED***:8333/d//conf\""), 900, 500, F("OK"), 2);
-      SendATCmdWaitResp(F("AT+HTTPACTION=0"), 1500, 500, F("OK"), 2); //now GET action , or 1 for POST , or 2 for HEAD
-      if (RX_FINISHED_STR_RECV == WaitResp(20000, 50, F("+HTTPACTION:0,200"))) {
+      SendATCmdWaitResp(op, 1500, 500, F("OK"), 2); //now GET action , or 1 for POST , or 2 for HEAD
+      if (RX_FINISHED_STR_RECV == WaitResp(20000, 500, respcode)) {
         // TODO get the bytes length from the previous response, rather than just getting 1000 bytes
         if (AT_RESP_OK == SendATCmdWaitResp(F("AT+HTTPREAD=0,1000"), 1500, 500, F("OK"), 2)) {
           // <CR><LF>+HTTPREAD:5<CR><LF>DATAHERE<CR><LF>OK
@@ -2388,15 +2397,13 @@ byte GSM::HttpGet(const char *url, char *result) {
           *p_end = 0;
           strcpy(result, (char *)(p_start));
 
-          Serial.print("<<");
-          Serial.print(result);
-          Serial.println(">>");
+          /* Serial.print("<<"); */
+          /* Serial.print(result); */
+          /* Serial.println(">>"); */
 
           res_code = HTTP_OK;
         }
       }
-
-//HTTPDATA
 
 // got OK +HTTPACTION:0,601,0  --> get, network error, no data
 // +HTTPACTION:0,200,5 --> get, ok, 5 bytes of data

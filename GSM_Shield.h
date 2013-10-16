@@ -232,6 +232,7 @@ class GSM
 
     void SetupGPRS(void);
     byte HttpGet(const char *url, char *result);
+    byte HttpPost(const char *urlp, char *result);
 
     // debug methods
 
@@ -264,5 +265,7 @@ class GSM
     byte last_speaker_volume; 
 
     char InitSMSMemory(void);
+
+    byte HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper *respcode, const char *url, char *result);
 };
 #endif
