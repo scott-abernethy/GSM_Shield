@@ -637,7 +637,7 @@ void GSM::ReadBuffer(char *into, int offset, int length) {
   strcpy(into, (char *)(p_start));
 }
 
-// eg ***REMOVED***
+// eg 4564243333334414892F
 byte GSM::GetICCID(char *id_string) {
   byte ret_val = -1;
   id_string[0] = 0x00;
@@ -889,7 +889,7 @@ byte GSM::CallStatus(void)
   }
 
   // TODO set incoming call number?
-  // +CPAS: 3 \ OK \ RING \ +CLIP: "***REMOVED***",161,"",,"",0
+  // +CPAS: 3 \ OK \ RING \ +CLIP: "0800123123",161,"",,"",0
 
   SetCommLineStatus(CLS_FREE);
   return (ret_val);
@@ -2365,7 +2365,7 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
   // check if registered?!
   SendATCmdWaitResp(F("AT+SAPBR=2,1"), 900, 900, F("OK"), 5); // query bearer
   //+SAPBR: 1,3,"0.0.0.0" --> closed
-  //+SAPBR: 1,1,"***REMOVED***" --> open
+  //+SAPBR: 1,1,"100.70.120.92" --> open
   if (!IsStringReceived(F("+SAPBR: 1,1"))) {
     SendATCmdWaitResp(F("AT+SAPBR=1,1"), 20000, 900, F("OK"), 5); // open bearer
   }
@@ -2381,7 +2381,6 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
       Serial.print(url);
       Serial.println(F("\""));
       WaitResp(900, 500, F("OK"));
-      //SendATCmdWaitResp(F("AT+HTTPPARA=\"URL\",\"***REMOVED***:8333/d//conf\""), 900, 500, F("OK"), 2);
       SendATCmdWaitResp(op, 1500, 500, F("OK"), 2); //now GET action , or 1 for POST , or 2 for HEAD
       if (RX_FINISHED_STR_RECV == WaitResp(20000, 500, respcode)) {
         // TODO get the bytes length from the previous response, rather than just getting 1000 bytes
