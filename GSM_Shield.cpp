@@ -3,6 +3,7 @@
  Released under the Creative Commons Attribution-Share Alike 3.0 License
  http://www.creativecommons.org/licenses/by-sa/3.0/
  www.hwkitchen.com
+ Modified by Scott Abernethy.
 */  
 
 #include "GSM_Shield.h"
@@ -26,7 +27,7 @@ extern "C" {
 #define PSTR(s) (__extension__({static prog_char __c[] PROGMEM = (s); &__c[0];})) 
 
 
-SoftwareSerial mySerial(2, 3);  //rx, tx
+//SoftwareSerial mySerial(6, 7);  //rx, tx
 
 #ifdef DEBUG_LED_ENABLED
 int DEBUG_LED = A0;          // LED connected to digital pin A0
@@ -197,7 +198,7 @@ void GSM::RxInit(uint16_t start_comm_tmout, uint16_t max_interchar_tmout)
   comm_buf[0] = 0x00; // end of string
   p_comm_buf = &comm_buf[0];
   comm_buf_len = 0;
-  mySerial.flush(); // erase rx circular buffer
+  Serial.flush(); // erase rx circular buffer
 }
 
 /**********************************************************
@@ -219,7 +220,7 @@ byte GSM::IsRxFinished(void)
 
   if (rx_state == RX_NOT_STARTED) {
     // Reception is not started yet - check tmout
-    if (!mySerial.available()) {
+    if (!Serial.available()) {
       // still no character received => check timeout
 	/*  
 	#ifdef DEBUG_GSMRX
@@ -256,7 +257,7 @@ byte GSM::IsRxFinished(void)
     // Reception already started
     // check new received bytes
     // only in case we have place in the buffer
-    num_of_bytes = mySerial.available();
+    num_of_bytes = Serial.available();
     // if there are some received bytes postpone the timeout
     if (num_of_bytes) prev_time = millis();
       
@@ -267,7 +268,7 @@ byte GSM::IsRxFinished(void)
         // we have still place in the GSM internal comm. buffer =>
         // move available bytes from circular buffer 
         // to the rx buffer
-        *p_comm_buf = mySerial.read();
+        *p_comm_buf = Serial.read();
 
         p_comm_buf++;
         comm_buf_len++;
@@ -285,7 +286,7 @@ byte GSM::IsRxFinished(void)
         // so just readout character from circular RS232 buffer 
         // to find out when communication id finished(no more characters
         // are received in inter-char timeout)
-        mySerial.read();
+        Serial.read();
       }
     }
 
@@ -317,15 +318,6 @@ byte GSM::IsRxFinished(void)
       ret_val = RX_FINISHED;
     }
   }
-		
-  	#ifdef DEBUG_GSMRX
-		if (ret_val == RX_FINISHED){
-			DebugPrint("DEBUG: Received string\r\n", 0);
-			for (int i=0; i<comm_buf_len; i++){
-				Serial.print(byte(comm_buf[i]));	
-			}
-		}
-	#endif
 	
   return (ret_val);
 }
@@ -342,7 +334,7 @@ byte GSM::IsStringReceived(const __FlashStringHelper *compare_string)
 {
   if (comm_buf_len) {
   
-		/*#ifdef EBUG_GSMRX
+		/*#ifdef DEBUG_GSMRX
 			Serial.println("DEBUG: Compare the string: ");
 			for (int i=0; i<comm_buf_len; i++){
 				Serial.write(byte(comm_buf[i]));	
@@ -360,32 +352,6 @@ byte GSM::IsStringReceived(const __FlashStringHelper *compare_string)
 
     return 0;
 }
-
-
-
-byte GSM::IsStringReceivedTest(const __FlashStringHelper *compare_string)
-{
-  if (comm_buf_len) {
-  
-		/*#ifdef DEBUG_GSMRX
-			Serial.println("DEBUG: Compare the string: ");
-			for (int i=0; i<comm_buf_len; i++){
-				Serial.print(char(comm_buf[i]));	
-			}
-			
-			Serial.println("DEBUG: with the string: ");
-			Serial.print(compare_string);	
-			Serial.println(" ");
-		#endif
-	        */
-
-	if (strstr_P((char *)comm_buf, (const prog_char *)compare_string) != NULL) {
-	    return 1;
-	}
-    }
-    return 0;
-}
-
 
 /**********************************************************
 Method waits for response
@@ -405,10 +371,26 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout)
   byte status;
 
   RxInit(start_comm_tmout, max_interchar_tmout); 
+  
   // wait until response is not finished
   do {
     status = IsRxFinished();
   } while (status == RX_NOT_FINISHED);
+  		
+  	#ifdef DEBUG_GSMRX
+		if (status == RX_FINISHED){
+			Serial.print("DEBUG: << ");
+                        for (int i=0; i<comm_buf_len; i++){
+                                char c = comm_buf[i];
+				Serial.print(c);	
+			}
+                        Serial.println();			
+		}
+                else {
+                      Serial.println("DEBUG: <<??");
+                }
+	#endif
+    
   return (status);
 }
 
@@ -483,7 +465,7 @@ char GSM::SendATCmdWaitResp(
     // so if we have no_of_attempts=1 tmout will not occurred
     if (i > 0) delay(500); 
 
-    mySerial.println(AT_cmd_string);
+    Serial.println(AT_cmd_string);
     status = WaitResp(start_comm_tmout, max_interchar_tmout); 
     if (status == RX_FINISHED) {
       // something was received but what was received?
@@ -536,7 +518,7 @@ byte GSM::IsInitialized(void)
 void GSM::TurnOn(long baud_rate)
 {
   SetCommLineStatus(CLS_ATCMD);
-  mySerial.begin(baud_rate);
+  //Serial.begin(baud_rate);
   
   //#ifdef DEBUG_PRINT
     // parameter 0 - because module is off so it is not necessary 
@@ -545,15 +527,15 @@ void GSM::TurnOn(long baud_rate)
 	//Serial.println(baud_rate);
 //#endif
   
-  if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 500, 100, F("OK"), 5)) {		//check power
+  if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {		//check power
     // there is no response => turn on the module
   
-		//#ifdef DEBUG_PRINT
+		#ifdef DEBUG_PRINT
 			// parameter 0 - because module is off so it is not necessary 
 			// to send finish AT<CR> here
-			//Serial.println("DEBUG: GSM module is off\r\n");
-			//Serial.println("DEBUG: start the module\r\n");
-		//#endif
+			Serial.println("DEBUG: GSM module is off");
+			Serial.println("DEBUG: start the module");
+		#endif
 		
 		// generate turn on pulse
 		//digitalWrite(GSM_ON, HIGH);
@@ -563,54 +545,54 @@ void GSM::TurnOn(long baud_rate)
 	}
 	else
 	{
-		//#ifdef DEBUG_PRINT
+		#ifdef DEBUG_PRINT
 			// parameter 0 - because module is off so it is not necessary 
 			// to send finish AT<CR> here
-			//Serial.println("DEBUG: GSM module is on\r\n");
-		//#endif
+			Serial.println("DEBUG: GSM module is on");
+		#endif
 	}
-	if (AT_RESP_ERR_DIF_RESP == SendATCmdWaitResp(F("AT"), 500, 100, F("OK"), 5)) {		//check OK
+	if (AT_RESP_ERR_DIF_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {		//check OK
 			
-		//#ifdef DEBUG_PRINT
+		#ifdef DEBUG_PRINT
 			// parameter 0 - because module is off so it is not necessary 
 			// to send finish AT<CR> here
-			//Serial.println("DEBUG: the baud is not ok\r\n");
-		//#endif
+			Serial.println("DEBUG: the baud is not ok\r\n");
+		#endif
 			  //SendATCmdWaitResp("AT+IPR=9600", 500, 50, "OK", 5);
-			  for (int i=1;i<7;i++){
+			  /*for (int i=1;i<7;i++){
 					switch (i) {
 					case 1:
-					  mySerial.begin(4800);
+					  Serial.begin(4800);
 						//#ifdef DEBUG_PRINT
 							//Serial.println("DEBUG: provo Baud 4800\r\n");
 						//#endif
 					  break;
 					case 2:
-					  mySerial.begin(9600);
+					  Serial.begin(9600);
 					  //#ifdef DEBUG_PRINT
 							//Serial.println("DEBUG: provo Baud 9600\r\n");
 						//#endif
 					  break;
 					case 3:
-					  mySerial.begin(19200);
+					  Serial.begin(19200);
 					  //#ifdef DEBUG_PRINT
 							//Serial.println("DEBUG: provo Baud 19200\r\n");
 						//#endif
 					  break;
 					case 4:
-					  mySerial.begin(38400);
+					  Serial.begin(38400);
 					  //#ifdef DEBUG_PRINT
 							//Serial.println("DEBUG: provo Baud 38400\r\n");
 						//#endif
 					  break;
 					case 5:
-					  mySerial.begin(57600);
+					  Serial.begin(57600);
 					  //#ifdef DEBUG_PRINT
 							//Serial.println("DEBUG: provo Baud 57600\r\n");
 						//#endif
 					  break;
 					case 6:
-					  mySerial.begin(115200);
+					  Serial.begin(115200);
 					  //#ifdef DEBUG_PRINT
 							//Serial.println("DEBUG: provo Baud 115200\r\n");
 						//#endif
@@ -619,31 +601,31 @@ void GSM::TurnOn(long baud_rate)
 					  // default is optional
 					}
 					
-					/*
-					  p_char = strchr((char *)(comm_buf),',');
-					  p_char1 = p_char+2; // we are on the first phone number character
-					  p_char = strchr((char *)(p_char1),'"');
-					  if (p_char != NULL) {
-						*p_char = 0; // end of string
-						strcpy(phone_number, (char *)(p_char1));
-					  }
-					*/  
+					
+					//  p_char = strchr((char *)(comm_buf),',');
+					//  p_char1 = p_char+2; // we are on the first phone number character
+					//  p_char = strchr((char *)(p_char1),'"');
+					//  if (p_char != NULL) {
+					//	*p_char = 0; // end of string
+					//	strcpy(phone_number, (char *)(p_char1));
+					//  }
+					  
 	  
 	  
 				  delay(100);
-				  /*sprintf (buff,"AT+IPR=%f",baud_rate);
-					#ifdef DEBUG_PRINT
-						// parameter 0 - because module is off so it is not necessary 
-						// to send finish AT<CR> here
-						DebugPrint("DEBUG: Stringa ", 0);
-						DebugPrint(buff, 0);
-					#endif
-					*/
-				  mySerial.print(F("AT+IPR="));
-				  mySerial.print(baud_rate);    
-				  mySerial.print('\r'); // send <CR>
+				  //sprintf (buff,"AT+IPR=%f",baud_rate);
+				//	#ifdef DEBUG_PRINT
+				//		// parameter 0 - because module is off so it is not necessary 
+				//		// to send finish AT<CR> here
+				//		DebugPrint("DEBUG: Stringa ", 0);
+				//		DebugPrint(buff, 0);
+				//	#endif
+					
+				  Serial.print(F("AT+IPR="));
+				  Serial.print(baud_rate);    
+				  Serial.print('\r'); // send <CR>
 				  delay(500);
-				  mySerial.begin(baud_rate);
+				  Serial.begin(baud_rate);
 				  delay(100);
 				  if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 500, 100, F("OK"), 5)){
 						//#ifdef DEBUG_PRINT
@@ -655,7 +637,7 @@ void GSM::TurnOn(long baud_rate)
 						break;					
 				}
 				  
-			  }
+			  }*/
 			  
 			  // communication line is not used yet = free
 			  SetCommLineStatus(CLS_FREE);
@@ -663,35 +645,35 @@ void GSM::TurnOn(long baud_rate)
 			  p_comm_buf = &comm_buf[0];
   
   
-		if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 500, 50, F("OK"), 5)) {
-			//#ifdef DEBUG_PRINT
+		if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {
+			#ifdef DEBUG_PRINT
 				// parameter 0 - because module is off so it is not necessary 
 				// to send finish AT<CR> here
-				//Serial.println("DEBUG: No answer from the module\r\n");
-			//#endif
+				Serial.println("DEBUG: No answer from the module\r\n");
+			#endif
 		}
 		else{
 	
-			//#ifdef DEBUG_PRINT
+			#ifdef DEBUG_PRINT
 				// parameter 0 - because module is off so it is not necessary 
 				// to send finish AT<CR> here
-				//Serial.println("DEBUG: 1 baud ok\r\n");
-			//#endif
+				Serial.println("DEBUG: 1 baud ok\r\n");
+			#endif
 		}
 
 
 	}
 	else
 	{
-		//#ifdef DEBUG_PRINT
-			//Serial.println("DEBUG: 2 GSM module is on and baud is ok\r\n");
-		//#endif
+		#ifdef DEBUG_PRINT
+			Serial.println("DEBUG: 2 GSM module is on and baud is ok\r\n");
+		#endif
   
 	}
   SetCommLineStatus(CLS_FREE);
 
   // send collection of first initialization parameters for the GSM module    
-  InitParam(PARAM_SET_0);
+  //InitParam(PARAM_SET_0);
 }
 
 
@@ -873,20 +855,16 @@ byte GSM::CheckRegistration(void)
 
   if (CLS_FREE != GetCommLineStatus()) return (REG_COMM_LINE_BUSY);
   SetCommLineStatus(CLS_ATCMD);
-  mySerial.println(F("AT+CREG?"));
-  // 5 sec. for initial comm tmout
-  // 50 msec. for inter character timeout
-  status = WaitResp(5000, 50); 
+  Serial.println(F("AT+CREG?"));
+  
+  status = WaitResp(5000, 200); 
 
   if (status == RX_FINISHED) {
-    // something was received but what was received?
-    // ---------------------------------------------
-    if(IsStringReceived(F("+CREG: 0,1")) 
+    if (IsStringReceived(F("+CREG: 0,1")) 
       || IsStringReceived(F("+CREG: 0,5"))) {
       // it means module is registered
       // ----------------------------
       module_status |= STATUS_REGISTERED;
-    
     
       // in case GSM module is registered first time after reset
       // sets flag STATUS_INITIALIZED
@@ -902,19 +880,15 @@ byte GSM::CheckRegistration(void)
     }
     else {
       // NOT registered
-      // --------------
       module_status &= ~STATUS_REGISTERED;
       ret_val = REG_NOT_REGISTERED;
     }
   }
   else {
-    // nothing was received
-    // --------------------
     ret_val = REG_NO_RESPONSE;
   }
   SetCommLineStatus(CLS_FREE);
  
-
   return (ret_val);
 }
 
@@ -934,41 +908,19 @@ byte GSM::CallStatus(void)
 
   if (CLS_FREE != GetCommLineStatus()) return (CALL_COMM_LINE_BUSY);
   SetCommLineStatus(CLS_ATCMD);
-  mySerial.println(F("AT+CPAS"));
+  Serial.println(F("AT+CPAS"));
 
-  // 5 sec. for initial comm tmout
-  // 50 msec. for inter character timeout
-  if (RX_TMOUT_ERR == WaitResp(5000, 50)) {
-    // nothing was received (RX_TMOUT_ERR)
-    // -----------------------------------
+  if (RX_TMOUT_ERR == WaitResp(5000, 200)) {
     ret_val = CALL_NO_RESPONSE;
   }
   else {
-    // something was received but what was received?
-    // ---------------------------------------------
-    // ready (device allows commands from TA/TE)
-    // <CR><LF>+CPAS: 0<CR><LF> <CR><LF>OK<CR><LF>
-    // unavailable (device does not allow commands from TA/TE)
-    // <CR><LF>+CPAS: 1<CR><LF> <CR><LF>OK<CR><LF> 
-    // unknown (device is not guaranteed to respond to instructions)
-    // <CR><LF>+CPAS: 2<CR><LF> <CR><LF>OK<CR><LF> - NO CALL
-    // ringing
-    // <CR><LF>+CPAS: 3<CR><LF> <CR><LF>OK<CR><LF> - NO CALL
-    // call in progress
-    // <CR><LF>+CPAS: 4<CR><LF> <CR><LF>OK<CR><LF> - NO CALL
-    if(IsStringReceived(F("0"))) { 
-      // ready - there is no call
-      // ------------------------
+    if (IsStringReceived(F("+CPAS: 0"))) {
       ret_val = CALL_NONE;
     }
-    else if(IsStringReceived(F("3"))) { 
-      // incoming call
-      // --------------
+    else if (IsStringReceived(F("+CPAS: 3"))) {
       ret_val = CALL_INCOM_VOICE;
     }
-    else if(IsStringReceived(F("4"))) { 
-      // active call
-      // -----------
+    else if (IsStringReceived(F("+CPAS: 4"))) {
       ret_val = CALL_ACTIVE_VOICE;
     }
   }
@@ -1019,7 +971,7 @@ byte GSM::CallStatusWithAuth(char *phone_number,
   phone_number[0] = 0x00;  // no phonr number so far
   if (CLS_FREE != GetCommLineStatus()) return (CALL_COMM_LINE_BUSY);
   SetCommLineStatus(CLS_ATCMD);
-  mySerial.println(F("AT+CLCC"));
+  Serial.println(F("AT+CLCC"));
 
   // 5 sec. for initial comm tmout
   // and max. 1500 msec. for inter character timeout
@@ -1152,7 +1104,7 @@ void GSM::PickUp(void)
 {
   if (CLS_FREE != GetCommLineStatus()) return;
   SetCommLineStatus(CLS_ATCMD);
-  mySerial.println(F("ATA"));
+  Serial.println(F("ATA"));
   SetCommLineStatus(CLS_FREE);
 }
 
@@ -1165,7 +1117,7 @@ void GSM::HangUp(void)
 {
   if (CLS_FREE != GetCommLineStatus()) return;
   SetCommLineStatus(CLS_ATCMD);
-  mySerial.println(F("ATH"));
+  Serial.println(F("ATH"));
   SetCommLineStatus(CLS_FREE);
 }
 
@@ -1181,12 +1133,12 @@ void GSM::Call(char *number_string)
   if (CLS_FREE != GetCommLineStatus()) return;
   SetCommLineStatus(CLS_ATCMD);
   // ATDxxxxxx;<CR>
-  mySerial.print(F("ATD"));
-  mySerial.print(number_string);    
-  mySerial.print(F(";\r"));
+  Serial.print(F("ATD"));
+  Serial.print(number_string);    
+  Serial.println(F(";"));
   // 10 sec. for initial comm tmout
   // 50 msec. for inter character timeout
-  WaitResp(10000, 50);
+  WaitResp(10000, 200);
   SetCommLineStatus(CLS_FREE);
 }
 
@@ -1201,13 +1153,13 @@ void GSM::Call(int sim_position)
   if (CLS_FREE != GetCommLineStatus()) return;
   SetCommLineStatus(CLS_ATCMD);
   // ATD>"SM" 1;<CR>
-  mySerial.print(F("ATD>\"SM\" "));
-  mySerial.print(sim_position);    
-  mySerial.print(F(";\r"));
+  Serial.print(F("ATD>\"SM\" "));
+  Serial.print(sim_position);    
+  Serial.print(F(";\r"));
 
   // 10 sec. for initial comm tmout
   // 50 msec. for inter character timeout
-  WaitResp(10000, 50);
+  WaitResp(10000, 200);
 
   SetCommLineStatus(CLS_FREE);
 }
@@ -1239,9 +1191,9 @@ char GSM::SetSpeakerVolume(byte speaker_volume)
   if (speaker_volume > 14) speaker_volume = 14;
   // select speaker volume (0 to 14)
   // AT+CLVL=X<CR>   X<0..14>
-  mySerial.print(F("AT+CLVL="));
-  mySerial.print((int)speaker_volume);    
-  mySerial.print('\r'); // send <CR>
+  Serial.print(F("AT+CLVL="));
+  Serial.print((int)speaker_volume);    
+  Serial.print('\r'); // send <CR>
   // 10 sec. for initial comm tmout
   // 50 msec. for inter character timeout
   if (RX_TMOUT_ERR == WaitResp(10000, 50)) {
@@ -1342,9 +1294,9 @@ char GSM::SendDTMFSignal(byte dtmf_tone)
   if (CLS_FREE != GetCommLineStatus()) return (ret_val);
   SetCommLineStatus(CLS_ATCMD);
   // e.g. AT+VTS=5<CR>
-  mySerial.print(F("AT+VTS="));
-  mySerial.print((int)dtmf_tone);    
-  mySerial.print('\r');
+  Serial.print(F("AT+VTS="));
+  Serial.print((int)dtmf_tone);    
+  Serial.print('\r');
   // 1 sec. for initial comm tmout
   // 50 msec. for inter character timeout
   if (RX_TMOUT_ERR == WaitResp(1000, 50)) {
@@ -1371,7 +1323,7 @@ return: 0 - not pushed = released
 **********************************************************/
 byte GSM::IsUserButtonPushed(void)
 {
-  byte ret_val = 1;
+  byte ret_val = 0;
   if (CLS_FREE != GetCommLineStatus()) return(0);
   SetCommLineStatus(CLS_ATCMD);
   //if (AT_RESP_OK == SendATCmdWaitResp("AT#GPIO=9,2", 500, 50, "#GPIO: 0,0", 1)) {
@@ -1419,23 +1371,23 @@ char GSM::SendSMS(const __FlashStringHelper *number_str, char *message_str)
   // try to send SMS 3 times in case there is some problem
   for (i = 0; i < 3; i++) {
     // send  AT+CMGS="number_str"
-    mySerial.print(F("AT+CMGS=\""));
-    mySerial.print(number_str);  
-    mySerial.print(F("\"\r"));
+    Serial.print(F("AT+CMGS=\""));
+    Serial.print(number_str);  
+    Serial.print(F("\"\r"));
 
     // 1000 msec. for initial comm tmout
     // 50 msec. for inter character timeout
     if (RX_FINISHED_STR_RECV == WaitResp(1000, 50, F(">"))) {
       // send SMS text
-      mySerial.print(message_str); 
+      Serial.print(message_str); 
 	  
 #ifdef DEBUG_SMS_ENABLED
       // SMS will not be sent = we will not pay => good for debugging
-      mySerial.write(0x1b);
+      Serial.write(0x1b);
       if (RX_FINISHED_STR_RECV == WaitResp(7000, 50, F("OK"))) { /* } */
 #else 
-      mySerial.write(0x1a);
-	  //mySerial.flush(); // erase rx circular buffer
+      Serial.write(0x1a);
+	  //Serial.flush(); // erase rx circular buffer
       if (RX_FINISHED_STR_RECV == WaitResp(7000, 5000, F("+CMGS"))) {
 #endif
         // SMS was send correctly 
@@ -1468,23 +1420,23 @@ char GSM::SendSMS(char *number_str, char *message_str)
   // try to send SMS 3 times in case there is some problem
   for (i = 0; i < 3; i++) {
     // send  AT+CMGS="number_str"
-    mySerial.print(F("AT+CMGS=\""));
-    mySerial.print(number_str);  
-    mySerial.print(F("\"\r"));
+    Serial.print(F("AT+CMGS=\""));
+    Serial.print(number_str);  
+    Serial.print(F("\"\r"));
 
     // 1000 msec. for initial comm tmout
     // 50 msec. for inter character timeout
     if (RX_FINISHED_STR_RECV == WaitResp(1000, 50, F(">"))) {
       // send SMS text
-      mySerial.print(message_str); 
+      Serial.print(message_str); 
 	  
 #ifdef DEBUG_SMS_ENABLED
       // SMS will not be sent = we will not pay => good for debugging
-      mySerial.write(0x1b);
+      Serial.write(0x1b);
       if (RX_FINISHED_STR_RECV == WaitResp(7000, 50, F("OK"))) { /* } */
 #else 
-      mySerial.write(0x1a);
-	  //mySerial.flush(); // erase rx circular buffer
+      Serial.write(0x1a);
+	  //Serial.flush(); // erase rx circular buffer
       if (RX_FINISHED_STR_RECV == WaitResp(7000, 5000, F("+CMGS"))) {
 #endif
         // SMS was send correctly 
@@ -1642,13 +1594,13 @@ char GSM::IsSMSPresent(byte required_status)
 
   switch (required_status) {
     case SMS_UNREAD:
-      mySerial.print(F("AT+CMGL=\"REC UNREAD\"\r"));
+      Serial.print(F("AT+CMGL=\"REC UNREAD\"\r"));
       break;
     case SMS_READ:
-      mySerial.print(F("AT+CMGL=\"REC READ\"\r"));
+      Serial.print(F("AT+CMGL=\"REC READ\"\r"));
       break;
     case SMS_ALL:
-      mySerial.print(F("AT+CMGL=\"ALL\"\r"));
+      Serial.print(F("AT+CMGL=\"ALL\"\r"));
       break;
   }
 
@@ -1767,9 +1719,9 @@ char GSM::GetSMS(byte position, char *phone_number, char *SMS_text, byte max_SMS
   ret_val = GETSMS_NO_SMS; // still no SMS
   
   //send "AT+CMGR=X" - where X = position
-  mySerial.print(F("AT+CMGR="));
-  mySerial.print((int)position);  
-  mySerial.print('\r');
+  Serial.print(F("AT+CMGR="));
+  Serial.print((int)position);  
+  Serial.print('\r');
 
   // 5000 msec. for initial comm tmout
   // 100 msec. for inter character tmout
@@ -2021,9 +1973,9 @@ char GSM::DeleteSMS(byte position)
   ret_val = 0; // not deleted yet
   
   //send "AT+CMGD=XY" - where XY = position
-  mySerial.print(F("AT+CMGD="));
-  mySerial.print((int)position);  
-  mySerial.print('\r');
+  Serial.print(F("AT+CMGD="));
+  Serial.print((int)position);  
+  Serial.print('\r');
 
 
   // 5000 msec. for initial comm tmout
@@ -2104,9 +2056,9 @@ char GSM::GetPhoneNumber(byte position, char *phone_number)
   phone_number[0] = 0; // phone number not found yet => empty string
   
   //send "AT+CPBR=XY" - where XY = position
-  mySerial.print(F("AT+CPBR="));
-  mySerial.print((int)position);  
-  mySerial.print('\r');
+  Serial.print(F("AT+CPBR="));
+  Serial.print((int)position);  
+  Serial.print('\r');
 
   // 5000 msec. for initial comm tmout
   // 50 msec. for inter character timeout
@@ -2178,11 +2130,11 @@ char GSM::WritePhoneNumber(byte position, char *phone_number)
   //send: AT+CPBW=XY,"00420123456789"
   // where XY = position,
   //       "00420123456789" = phone number string
-  mySerial.print(F("AT+CPBW="));
-  mySerial.print((int)position);  
-  mySerial.print(F(",\""));
-  mySerial.print(phone_number);
-  mySerial.print(F("\"\r"));
+  Serial.print(F("AT+CPBW="));
+  Serial.print((int)position);  
+  Serial.print(F(",\""));
+  Serial.print(phone_number);
+  Serial.print(F("\"\r"));
 
   // 5000 msec. for initial comm tmout
   // 50 msec. for inter character timeout
@@ -2234,9 +2186,9 @@ char GSM::DelPhoneNumber(byte position)
   
   //send: AT+CPBW=XY
   // where XY = position
-  mySerial.print(F("AT+CPBW="));
-  mySerial.print((int)position);  
-  mySerial.print('\r');
+  Serial.print(F("AT+CPBW="));
+  Serial.print((int)position);  
+  Serial.print('\r');
 
   // 5000 msec. for initial comm tmout
   // 50 msec. for inter character timeout
@@ -2368,7 +2320,7 @@ char GSM::GetDateTime(char *date_time)
   ret_val = GETSMS_NO_SMS; // still no SMS
   
   //send "AT+CCLK?" to request date and time
-  mySerial.print(F("AT+CCLK?\r")); 
+  Serial.print(F("AT+CCLK?\r")); 
 
   // 5000 msec. for initial comm tmout
   // 100 msec. for inter character tmout
@@ -2425,9 +2377,9 @@ void GSM::Echo(byte state)
 	  #ifdef DEBUG_PRINT
 		DebugPrint("DEBUG Echo\r\n",1);
 	  #endif
-	  mySerial.print(F("ATE"));
-	  mySerial.print((int)state);    
-	  mySerial.print('\r');
+	  Serial.print(F("ATE"));
+	  Serial.print((int)state);    
+	  Serial.print('\r');
 	  delay(500);
 	  SetCommLineStatus(CLS_FREE);
 	}

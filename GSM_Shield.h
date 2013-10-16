@@ -3,23 +3,23 @@
  Released under the Creative Commons Attribution-Share Alike 3.0 License
  http://www.creativecommons.org/licenses/by-sa/3.0/
  www.hwkitchen.com
+ Modified by Scott Abernethy.
 */
 #ifndef __GSM_Shield
 #define __GSM_Shield
 
 #include "Arduino.h"
 #include <avr/pgmspace.h>
-#include <SoftwareSerial.h>
 
 #define GSM_LIB_VERSION 103 // library version X.YY (e.g. 1.00)
 
 // if defined - debug print is enabled with possibility to print out 
 // debug texts to the terminal program
-//#define DEBUG_PRINT
+#define DEBUG_PRINT
 
 // if defined - debug print is enabled with possibility to print out 
 // the data recived from gsm module
-//#define DEBUG_GSMRX
+#define DEBUG_GSMRX
 
 // if defined - debug LED is enabled, otherwise debug LED is disabled
 #define DEBUG_LED_ENABLED
@@ -31,8 +31,8 @@
 
 
 // pins definition
-#define GSM_ON              8 // connect GSM Module turn ON to pin 77 
-#define GSM_RESET           9 // connect GSM Module RESET to pin 35
+//#define GSM_ON              3 // connect GSM Module turn ON to pin 77 
+//#define GSM_RESET           9 // connect GSM Module RESET to pin 35
 //#define DTMF_OUTPUT_ENABLE  71 // connect DTMF Output Enable not used
 #define DTMF_DATA_VALID     14 // connect DTMF Data Valid to pin 14
 #define DTMF_DATA0          72 // connect DTMF Data0 to pin 72
@@ -60,9 +60,6 @@
 #define STATUS_INITIALIZED          1
 #define STATUS_REGISTERED           2
 #define STATUS_USER_BUTTON_ENABLE   4
-
-
-
 
 // SMS type 
 // use by method IsSMSPresent()
