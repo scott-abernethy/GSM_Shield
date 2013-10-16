@@ -160,6 +160,7 @@ class GSM
     void InitParam (byte group);
     //void EnableDTMF(void);
     //byte GetDTMFSignal(void);
+    byte GetICCID(char *id_string);
     void SetSpeaker(byte off_on);
     byte CheckRegistration(void); // must be called regularly
     byte IsRegistered(void);

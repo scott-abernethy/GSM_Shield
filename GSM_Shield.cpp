@@ -613,6 +613,33 @@ void GSM::TurnOn(void)
 //Serial.println("AT+COPS?"); // Network operators read command -- +COPS: 0,0,"2degrees"
 //delay(1000);
 
+// eg ***REMOVED***
+byte GSM::GetICCID(char *id_string)
+{
+  byte ret_val = -1;
+  byte *p_start;
+  byte *p_end;
+  id_string[0] = 0x00;
+
+  if (CLS_FREE != GetCommLineStatus()) return 0;
+  SetCommLineStatus(CLS_ATCMD);
+
+  if (AT_RESP_OK == SendATCmdWaitResp(F("AT+CCID"), 500, 50, F("OK"), 5)) {
+    p_start = &comm_buf[0];
+    p_start = p_start+2; // cr lf
+    p_end = p_start+20; // we are on the first phone number character
+    *p_end = 0; // end of string
+    strcpy(id_string, (char *)(p_start));
+    ret_val = 1;
+  }
+  else {
+  }
+
+  SetCommLineStatus(CLS_FREE);
+
+  return ret_val;
+}
+
 /**********************************************************
   Sends parameters for initialization of GSM module
 
@@ -657,29 +684,18 @@ void GSM::InitParam(byte group)
       DebugPrint("DEBUG: configure the module PARAM_SET_1\r\n", 0);
 #endif
 
-      // Request calling line identification
-      SendATCmdWaitResp(F("AT+CLIP=1"), 500, 50, F("OK"), 5);
-      // Set date and time
-      //SendATCmdWaitResp("AT+CCLK=12/11/18,20:40:00", 500, 50, "OK", 5);
-      // Mobile Equipment Error Code
-      SendATCmdWaitResp(F("AT+CMEE=0"), 500, 50, F("OK"), 5);
-      // Echo canceller enabled 
-      //SendATCmdWaitResp("AT#SHFEC=1", 500, 50, "OK", 5);
-      // Ringer tone select (0 to 32)
-      //SendATCmdWaitResp("AT#SRS=26,0", 500, 50, "OK", 5);
-      // Microphone gain (0 to 7) - response here sometimes takes 
-      // more than 500msec. so 1000msec. is more safety
-      //SendATCmdWaitResp("AT#HFMICG=7", 1000, 50, "OK", 5);
-      // set the SMS mode to text 
-      SendATCmdWaitResp(F("AT+CMGF=1"), 500, 50, F("OK"), 5);
-      // Auto answer after first ring enabled
-      //SendATCmdWaitResp("ATS0=1", 500, 50, "OK", 5);
-      // select ringer path to handsfree
-      //SendATCmdWaitResp("AT#SRP=1", 500, 50, "OK", 5);
-      // select ringer sound level
-      //SendATCmdWaitResp("AT+CRSL=2", 500, 50, "OK", 5);
-      // Set phonebook memory storage as SIM card
-      SendATCmdWaitResp(F("AT+CPBS=\"SM\""), 1000, 50, F("OK"), 5);
+      SendATCmdWaitResp(F("AT+CLIP=1"), 500, 50, F("OK"), 5); // Request calling line identification
+      SendATCmdWaitResp(F("AT+CRC=1"), 500, 50, F("OK"), 5); // Extended call indication +CRING
+      //SendATCmdWaitResp("AT+CCLK=12/11/18,20:40:00", 500, 50, "OK", 5); // Set date and time
+      SendATCmdWaitResp(F("AT+CMEE=0"), 500, 50, F("OK"), 5); // Mobile Equipment Error Code
+      //SendATCmdWaitResp("AT#SHFEC=1", 500, 50, "OK", 5); // Echo canceller enabled 
+      //SendATCmdWaitResp("AT#SRS=26,0", 500, 50, "OK", 5); // Ringer tone select (0 to 32)
+      //SendATCmdWaitResp("AT#HFMICG=7", 1000, 50, "OK", 5); // Microphone gain (0 to 7) - response here sometimes takes more than 500msec. so 1000msec. is more safety
+      SendATCmdWaitResp(F("AT+CMGF=1"), 500, 50, F("OK"), 5); // set the SMS mode to text 
+      //SendATCmdWaitResp("ATS0=1", 500, 50, "OK", 5); // Auto answer after first ring enabled
+      //SendATCmdWaitResp("AT#SRP=1", 500, 50, "OK", 5); // select ringer path to handsfree
+      //SendATCmdWaitResp("AT+CRSL=2", 500, 50, "OK", 5); // select ringer sound level
+      SendATCmdWaitResp(F("AT+CPBS=\"SM\""), 1000, 50, F("OK"), 5); // Set phonebook memory storage as SIM card
 
       SetCommLineStatus(CLS_FREE);
       //SetSpeakerVolume(9); // select speaker volume (0 to 14)
