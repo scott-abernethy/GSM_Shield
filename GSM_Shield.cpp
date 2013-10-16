@@ -379,21 +379,21 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout)
   do {
     status = IsRxFinished();
   } while (status == RX_NOT_FINISHED);
-  		
-  	#ifdef DEBUG_GSMRX
-		if (status == RX_FINISHED){
-			Serial.print("DEBUG: << ");
-                        for (int i=0; i<comm_buf_len; i++){
-                                char c = comm_buf[i];
-				Serial.print(c);	
-			}
-                        Serial.println();			
-		}
-                else {
-                      Serial.println("DEBUG: <<TIMEOUT");
-                }
-	#endif
-    
+
+#ifdef DEBUG_GSMRX
+  if (status == RX_FINISHED){
+    Serial.print("DEBUG: << ");
+    for (int i=0; i<comm_buf_len; i++){
+      char c = comm_buf[i];
+      Serial.print(c);
+    }
+    Serial.println();
+  }
+  else {
+    Serial.println("DEBUG: <<TIMEOUT");
+  }
+#endif
+
   return (status);
 }
 
@@ -415,6 +415,7 @@ return:
 byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout, 
 		const __FlashStringHelper *expected_resp_string)
 {
+  // TODO unify with other WaitResp above.
   byte status;
   byte ret_val;
 
@@ -424,10 +425,23 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout,
     status = IsRxFinished();
   } while (status == RX_NOT_FINISHED);
 
+#ifdef DEBUG_GSMRX
+  if (status == RX_FINISHED){
+    Serial.print("DEBUG: << ");
+    for (int i=0; i<comm_buf_len; i++){
+      char c = comm_buf[i];
+      Serial.print(c);
+    }
+    Serial.println();
+  }
+  else {
+    Serial.println("DEBUG: <<TIMEOUT");
+  }
+#endif
+
   if (status == RX_FINISHED) {
     // something was received but what was received?
-    // ---------------------------------------------
-	
+
     if(IsStringReceived(expected_resp_string)) {
       // expected string was received
       // ----------------------------
@@ -437,7 +451,6 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout,
   }
   else {
     // nothing was received
-    // --------------------
     ret_val = RX_TMOUT_ERR;
   }
   return (ret_val);
@@ -628,6 +641,7 @@ void GSM::ReadBuffer(char *into, int offset, int length) {
 byte GSM::GetICCID(char *id_string) {
   byte ret_val = -1;
   id_string[0] = 0x00;
+  id_string[20] = 0x00;
 
   if (CLS_FREE != GetCommLineStatus()) return 0;
   SetCommLineStatus(CLS_ATCMD);
@@ -2335,7 +2349,11 @@ void GSM::SetupGPRS() {
   SendATCmdWaitResp(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\""), 900, 500, F("OK"), 2);
 }
 
-void GSM::TestGPRS() {
+byte GSM::HttpGet(const char *url, char *result) {
+  result[0] = 0x00;
+  byte res_code = HTTP_FAIL;
+
+  // check if registered?!
   SendATCmdWaitResp(F("AT+SAPBR=2,1"), 900, 900, F("OK"), 5); // query bearer
   //+SAPBR: 1,3,"0.0.0.0" --> closed
   //+SAPBR: 1,1,"***REMOVED***" --> open
@@ -2350,19 +2368,18 @@ void GSM::TestGPRS() {
       SendATCmdWaitResp(F("AT+HTTPINIT"), 900, 500, F("OK"), 5);
       SendATCmdWaitResp(F("AT+HTTPPARA=\"CID\",\"1\""), 900, 500, F("OK"), 5);
 
-      SendATCmdWaitResp(F("AT+HTTPPARA=\"URL\",\"***REMOVED***:8333/echo\""), 900, 500, F("OK"), 2);
+      Serial.print(F("AT+HTTPPARA=\"URL\",\""));
+      Serial.print(url);
+      Serial.println(F("\""));
+      WaitResp(900, 500, F("OK"));
+      //SendATCmdWaitResp(F("AT+HTTPPARA=\"URL\",\"***REMOVED***:8333/d//conf\""), 900, 500, F("OK"), 2);
       SendATCmdWaitResp(F("AT+HTTPACTION=0"), 1500, 500, F("OK"), 2); //now GET action , or 1 for POST , or 2 for HEAD
       if (RX_FINISHED_STR_RECV == WaitResp(20000, 50, F("+HTTPACTION:0,200"))) {
         // TODO get the bytes length from the previous response, rather than just getting 1000 bytes
         if (AT_RESP_OK == SendATCmdWaitResp(F("AT+HTTPREAD=0,1000"), 1500, 500, F("OK"), 2)) {
-          Serial.println("!!! !!! !!! Response !!! !!! !!!");
           // <CR><LF>+HTTPREAD:5<CR><LF>DATAHERE<CR><LF>OK
-
           char *p_start;
           char *p_end;
-          char result[255];
-
-          result[0] = 0x00;
 
           p_start = strchr((char *)(comm_buf), ':');
           p_start = strchr((char *)(p_start), 0x0d);
@@ -2375,6 +2392,7 @@ void GSM::TestGPRS() {
           Serial.print(result);
           Serial.println(">>");
 
+          res_code = HTTP_OK;
         }
       }
 
@@ -2389,4 +2407,5 @@ void GSM::TestGPRS() {
     }
 
     //SendATCmdWaitResp(F("AT+SAPBR=0,1"), 900, 500, F("OK"), 5); // close bearer
+    return res_code;
 }

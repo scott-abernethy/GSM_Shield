@@ -143,6 +143,12 @@ enum getsms_ret_val_enum
   GETSMS_LAST_ITEM
 };
 
+enum httpget_ret_val_enum {
+  HTTP_OK = 0,
+  HTTP_FAIL,
+  HTTP_LAST_ITEM
+};
+
 
 class GSM
 {
@@ -225,7 +231,7 @@ class GSM
     void Echo(byte state);
 
     void SetupGPRS(void);
-    void TestGPRS(void);
+    byte HttpGet(const char *url, char *result);
 
     // debug methods
 
