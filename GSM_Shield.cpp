@@ -139,46 +139,49 @@ GSM::GSM(void)
 /**********************************************************
   Initialization of GSM module serial line
 **********************************************************/
-/*
-void GSM::InitSerLine(long baud_rate)
+void GSM::InitSerLine()
 {
-  // open the Serial line for the communication
-  mySerial.begin(baud_rate);
-  //SendATCmdWaitResp("AT+IPR=9600", 500, 50, "OK", 5);
-  for (int i=1;i<7;i++){
-		switch (i) {
-		case 1:
-		  mySerial.begin(4800);
-		  break;
-		case 2:
-		  mySerial.begin(9600);
-		  break;
-		case 3:
-		  mySerial.begin(19200);
-		  break;
-		case 4:
-		  mySerial.begin(38400);
-		  break;
-		case 5:
-		  mySerial.begin(57600);
-		  break;
-		case 6:
-		  mySerial.begin(115200);
-		  break;
-		  // if nothing else matches, do the default
-		  // default is optional
-		}
-	  mySerial.print("AT+IPR=");
-	  mySerial.print(baud_rate);    
-	  mySerial.print("\r"); // send <CR>
+  for (int i=1;i<7;i++) {
+    switch (i) {
+      case 1:
+        Serial.begin(4800);
+        break;
+      case 2:
+        Serial.begin(9600);
+        break;
+      case 3:
+        Serial.begin(19200);
+        break;
+      case 4:
+        Serial.begin(38400);
+        break;
+      case 5:
+        Serial.begin(57600);
+        break;
+      case 6:
+        Serial.begin(115200);
+        break;
+    }
+    delay(1000);
+    SendATCmdWaitResp(F("AT+IPR=9600"), 500, 50, F("OK"), 5);
+    delay(1000);
+    Serial.begin(9600);
+    delay(1000);
+    if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 500, 100, F("OK"), 5)){
+#ifdef DEBUG_PRINT
+      Serial.print("DEBUG: Baud fixed via ");
+      Serial.println(i);
+#endif
+      break;
+    }
   }
-  
+
   // communication line is not used yet = free
   SetCommLineStatus(CLS_FREE);
   // pointer is initialized to the first item of comm. buffer
   p_comm_buf = &comm_buf[0];
 }
-*/
+
 /**********************************************************
   Initializes receiving process
 
@@ -509,173 +512,106 @@ byte GSM::IsInitialized(void)
   return (module_status & STATUS_INITIALIZED);
 }
 
+void GSM::ModeGSM(void) {
+  // Init driver pins
+  pinMode(3, OUTPUT);
+  pinMode(4, OUTPUT);
+  pinMode(5, OUTPUT);
+
+  delay(500);
+
+  // Output GSM Timing
+  digitalWrite(5, HIGH);
+  delay(1500);
+  digitalWrite(5, LOW);
+
+  delay(500);
+
+  // UART OFF
+  digitalWrite(3, HIGH);
+  digitalWrite(4, HIGH);
+
+  delay(500);
+
+  // GSM UART
+  digitalWrite(3, LOW);
+
+  delay(5000);
+
+  Serial.begin(9600);
+  Echo(0);
+
+  delay(5000);
+}
+
 /**********************************************************
   Checks if the GSM module is responding 
   to the AT command
   - if YES nothing is made 
   - if NO GSM module is turned on 
 **********************************************************/
-void GSM::TurnOn(long baud_rate)
+void GSM::TurnOn(void)
 {
+  ModeGSM();
+
   SetCommLineStatus(CLS_ATCMD);
-  //Serial.begin(baud_rate);
-  
-  //#ifdef DEBUG_PRINT
-    // parameter 0 - because module is off so it is not necessary 
-    // to send finish AT<CR> here
-    //Serial.println("DEBUG: baud ");
-	//Serial.println(baud_rate);
-//#endif
-  
-  if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {		//check power
+  if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {
     // there is no response => turn on the module
-  
-		#ifdef DEBUG_PRINT
-			// parameter 0 - because module is off so it is not necessary 
-			// to send finish AT<CR> here
-			Serial.println("DEBUG: GSM module is off");
-			Serial.println("DEBUG: start the module");
-		#endif
-		
-		// generate turn on pulse
-		//digitalWrite(GSM_ON, HIGH);
-		//delay(1200);
-		//digitalWrite(GSM_ON, LOW);
-		//delay(5000);
-	}
-	else
-	{
-		#ifdef DEBUG_PRINT
-			// parameter 0 - because module is off so it is not necessary 
-			// to send finish AT<CR> here
-			Serial.println("DEBUG: GSM module is on");
-		#endif
-	}
-	if (AT_RESP_ERR_DIF_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {		//check OK
-			
-		#ifdef DEBUG_PRINT
-			// parameter 0 - because module is off so it is not necessary 
-			// to send finish AT<CR> here
-			Serial.println("DEBUG: the baud is not ok\r\n");
-		#endif
-			  //SendATCmdWaitResp("AT+IPR=9600", 500, 50, "OK", 5);
-			  /*for (int i=1;i<7;i++){
-					switch (i) {
-					case 1:
-					  Serial.begin(4800);
-						//#ifdef DEBUG_PRINT
-							//Serial.println("DEBUG: provo Baud 4800\r\n");
-						//#endif
-					  break;
-					case 2:
-					  Serial.begin(9600);
-					  //#ifdef DEBUG_PRINT
-							//Serial.println("DEBUG: provo Baud 9600\r\n");
-						//#endif
-					  break;
-					case 3:
-					  Serial.begin(19200);
-					  //#ifdef DEBUG_PRINT
-							//Serial.println("DEBUG: provo Baud 19200\r\n");
-						//#endif
-					  break;
-					case 4:
-					  Serial.begin(38400);
-					  //#ifdef DEBUG_PRINT
-							//Serial.println("DEBUG: provo Baud 38400\r\n");
-						//#endif
-					  break;
-					case 5:
-					  Serial.begin(57600);
-					  //#ifdef DEBUG_PRINT
-							//Serial.println("DEBUG: provo Baud 57600\r\n");
-						//#endif
-					  break;
-					case 6:
-					  Serial.begin(115200);
-					  //#ifdef DEBUG_PRINT
-							//Serial.println("DEBUG: provo Baud 115200\r\n");
-						//#endif
-					  break;
-					  // if nothing else matches, do the default
-					  // default is optional
-					}
-					
-					
-					//  p_char = strchr((char *)(comm_buf),',');
-					//  p_char1 = p_char+2; // we are on the first phone number character
-					//  p_char = strchr((char *)(p_char1),'"');
-					//  if (p_char != NULL) {
-					//	*p_char = 0; // end of string
-					//	strcpy(phone_number, (char *)(p_char1));
-					//  }
-					  
-	  
-	  
-				  delay(100);
-				  //sprintf (buff,"AT+IPR=%f",baud_rate);
-				//	#ifdef DEBUG_PRINT
-				//		// parameter 0 - because module is off so it is not necessary 
-				//		// to send finish AT<CR> here
-				//		DebugPrint("DEBUG: Stringa ", 0);
-				//		DebugPrint(buff, 0);
-				//	#endif
-					
-				  Serial.print(F("AT+IPR="));
-				  Serial.print(baud_rate);    
-				  Serial.print('\r'); // send <CR>
-				  delay(500);
-				  Serial.begin(baud_rate);
-				  delay(100);
-				  if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 500, 100, F("OK"), 5)){
-						//#ifdef DEBUG_PRINT
-							// parameter 0 - because module is off so it is not necessary 
-							// to send finish AT<CR> here
-							//Serial.println("DEBUG: ricevuto ok da modulo, baud impostato: ");							
-							//Serial.println(baud_rate, 0);	
-						//#endif
-						break;					
-				}
-				  
-			  }*/
-			  
-			  // communication line is not used yet = free
-			  SetCommLineStatus(CLS_FREE);
-			  // pointer is initialized to the first item of comm. buffer
-			  p_comm_buf = &comm_buf[0];
-  
-  
-		if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {
-			#ifdef DEBUG_PRINT
-				// parameter 0 - because module is off so it is not necessary 
-				// to send finish AT<CR> here
-				Serial.println("DEBUG: No answer from the module\r\n");
-			#endif
-		}
-		else{
-	
-			#ifdef DEBUG_PRINT
-				// parameter 0 - because module is off so it is not necessary 
-				// to send finish AT<CR> here
-				Serial.println("DEBUG: 1 baud ok\r\n");
-			#endif
-		}
 
+#ifdef DEBUG_PRINT
+    Serial.println("DEBUG: GSM module is off");
+    Serial.println("DEBUG: start the module");
+#endif
 
-	}
-	else
-	{
-		#ifdef DEBUG_PRINT
-			Serial.println("DEBUG: 2 GSM module is on and baud is ok\r\n");
-		#endif
-  
-	}
+    ModeGSM();
+  }
+  else {
+#ifdef DEBUG_PRINT
+    Serial.println("DEBUG: GSM module is on");
+#endif
+  }
+
+  if (AT_RESP_ERR_DIF_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {
+    //check OK
+
+#ifdef DEBUG_PRINT
+    Serial.println("DEBUG: the baud is not ok");
+#endif
+
+    InitSerLine();
+
+    // pointer is initialized to the first item of comm. buffer
+    p_comm_buf = &comm_buf[0];
+
+    if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {
+#ifdef DEBUG_PRINT
+      Serial.println("DEBUG: Baud now ok");
+#endif
+    }
+    else {
+#ifdef DEBUG_PRINT
+      Serial.println("DEBUG: Baud still bad");
+#endif
+    }
+  }
+  else {
+#ifdef DEBUG_PRINT
+    Serial.println("DEBUG: 2 GSM module is on and baud is ok");
+#endif
+  }
+
   SetCommLineStatus(CLS_FREE);
-
-  // send collection of first initialization parameters for the GSM module    
-  //InitParam(PARAM_SET_0);
 }
 
+// TODO print info 
+//Serial.println("ATI"); // Product info -- SIM900 R11.0
+//delay(1000);
+//Serial.println("AT&V"); // Configuration profiles -- ACTIVE PROFILE: E0 Q0 V1 X4 &C1 &D1 +I
+//delay(1000);
+//Serial.println("AT+COPS=?"); // Network operators test command
+//delay(1000);
+//Serial.println("AT+COPS?"); // Network operators read command -- +COPS: 0,0,"2degrees"
+//delay(1000);
 
 /**********************************************************
   Sends parameters for initialization of GSM module
@@ -685,23 +621,21 @@ void GSM::TurnOn(long baud_rate)
 **********************************************************/
 void GSM::InitParam(byte group)
 {
-
   switch (group) {
     case PARAM_SET_0:
-      // check comm line
       if (CLS_FREE != GetCommLineStatus()) return;
-	  
-	  	#ifdef DEBUG_PRINT
-			DebugPrint("DEBUG: configure the module PARAM_SET_0\r\n", 0);
-		#endif
       SetCommLineStatus(CLS_ATCMD);
 
+#ifdef DEBUG_PRINT
+      DebugPrint("DEBUG: configure the module PARAM_SET_0\r\n", 0);
+#endif
+
       // Reset to the factory settings
-      SendATCmdWaitResp(F("AT&F"), 1000, 50, F("OK"), 5);
+      //SendATCmdWaitResp(F("AT&F"), 1000, 50, F("OK"), 5);
       // switch off echo
-      //SendATCmdWaitResp("ATE0", 500, 50, "OK", 5);
+      SendATCmdWaitResp(F("ATE0"), 500, 50, F("OK"), 5);
       // setup fixed baud rate
-      //SendATCmdWaitResp("AT+IPR=9600", 500, 50, "OK", 5);
+      SendATCmdWaitResp(F("AT+IPR=9600"), 500, 50, F("OK"), 5);
       // setup mode
       //SendATCmdWaitResp("AT#SELINT=1", 500, 50, "OK", 5);
       // Switch ON User LED - just as signalization we are here
@@ -716,13 +650,12 @@ void GSM::InitParam(byte group)
       break;
 
     case PARAM_SET_1:
-      // check comm line
       if (CLS_FREE != GetCommLineStatus()) return;
-	  
-	  	#ifdef DEBUG_PRINT
-			DebugPrint("DEBUG: configure the module PARAM_SET_1\r\n", 0);
-		#endif
       SetCommLineStatus(CLS_ATCMD);
+
+#ifdef DEBUG_PRINT
+      DebugPrint("DEBUG: configure the module PARAM_SET_1\r\n", 0);
+#endif
 
       // Request calling line identification
       SendATCmdWaitResp(F("AT+CLIP=1"), 500, 50, F("OK"), 5);
@@ -740,25 +673,19 @@ void GSM::InitParam(byte group)
       // set the SMS mode to text 
       SendATCmdWaitResp(F("AT+CMGF=1"), 500, 50, F("OK"), 5);
       // Auto answer after first ring enabled
-      // auto answer is not used
       //SendATCmdWaitResp("ATS0=1", 500, 50, "OK", 5);
-
       // select ringer path to handsfree
       //SendATCmdWaitResp("AT#SRP=1", 500, 50, "OK", 5);
       // select ringer sound level
       //SendATCmdWaitResp("AT+CRSL=2", 500, 50, "OK", 5);
-      // we must release comm line because SetSpeakerVolume()
-      // checks comm line if it is free
-      SetCommLineStatus(CLS_FREE);
-      // select speaker volume (0 to 14)
-      //SetSpeakerVolume(9);
-      // init SMS storage
-      InitSMSMemory();
-      // select phonebook memory storage
+      // Set phonebook memory storage as SIM card
       SendATCmdWaitResp(F("AT+CPBS=\"SM\""), 1000, 50, F("OK"), 5);
+
+      SetCommLineStatus(CLS_FREE);
+      //SetSpeakerVolume(9); // select speaker volume (0 to 14)
+      InitSMSMemory();
       break;
   }
-  
 }
 
 /**********************************************************
@@ -924,6 +851,9 @@ byte GSM::CallStatus(void)
       ret_val = CALL_ACTIVE_VOICE;
     }
   }
+
+  // TODO set incoming call number?
+  // +CPAS: 3 \ OK \ RING \ +CLIP: "***REMOVED***",161,"",,"",0
 
   SetCommLineStatus(CLS_FREE);
   return (ret_val);
@@ -1104,7 +1034,7 @@ void GSM::PickUp(void)
 {
   if (CLS_FREE != GetCommLineStatus()) return;
   SetCommLineStatus(CLS_ATCMD);
-  Serial.println(F("ATA"));
+  SendATCmdWaitResp(F("ATA"), 1000, 100, F("OK"), 2);
   SetCommLineStatus(CLS_FREE);
 }
 
@@ -1117,7 +1047,7 @@ void GSM::HangUp(void)
 {
   if (CLS_FREE != GetCommLineStatus()) return;
   SetCommLineStatus(CLS_ATCMD);
-  Serial.println(F("ATH"));
+  SendATCmdWaitResp(F("ATH"), 1000, 100, F("OK"), 2);
   SetCommLineStatus(CLS_FREE);
 }
 
@@ -1134,10 +1064,8 @@ void GSM::Call(char *number_string)
   SetCommLineStatus(CLS_ATCMD);
   // ATDxxxxxx;<CR>
   Serial.print(F("ATD"));
-  Serial.print(number_string);    
+  Serial.print(number_string);
   Serial.println(F(";"));
-  // 10 sec. for initial comm tmout
-  // 50 msec. for inter character timeout
   WaitResp(10000, 200);
   SetCommLineStatus(CLS_FREE);
 }
@@ -1154,13 +1082,9 @@ void GSM::Call(int sim_position)
   SetCommLineStatus(CLS_ATCMD);
   // ATD>"SM" 1;<CR>
   Serial.print(F("ATD>\"SM\" "));
-  Serial.print(sim_position);    
-  Serial.print(F(";\r"));
-
-  // 10 sec. for initial comm tmout
-  // 50 msec. for inter character timeout
+  Serial.print(sim_position);
+  Serial.println(F(";"));
   WaitResp(10000, 200);
-
   SetCommLineStatus(CLS_FREE);
 }
 
@@ -2126,34 +2050,38 @@ char GSM::WritePhoneNumber(byte position, char *phone_number)
   if (CLS_FREE != GetCommLineStatus()) return (ret_val);
   SetCommLineStatus(CLS_ATCMD);
   ret_val = 0; // phone number was not written yet
-  
+
   //send: AT+CPBW=XY,"00420123456789"
   // where XY = position,
   //       "00420123456789" = phone number string
   Serial.print(F("AT+CPBW="));
-  Serial.print((int)position);  
+  Serial.print((int)position);
   Serial.print(F(",\""));
   Serial.print(phone_number);
-  Serial.print(F("\"\r"));
+  Serial.println(F("\""));
 
-  // 5000 msec. for initial comm tmout
-  // 50 msec. for inter character timeout
   switch (WaitResp(5000, 50, F("OK"))) {
-    case RX_TMOUT_ERR:
-      // response was not received in specific time
-      break;
-
-    case RX_FINISHED_STR_RECV:
-      // response is OK = has been written
+    case RX_FINISHED_STR_RECV: // response is OK = has been written
       ret_val = 1;
       break;
 
-    case RX_FINISHED_STR_NOT_RECV:
-      // other response: e.g. ERROR
+    case RX_TMOUT_ERR: // response was not received in specific time
+    case RX_FINISHED_STR_NOT_RECV: // other response: e.g. ERROR
       break;
   }
 
   SetCommLineStatus(CLS_FREE);
+
+#ifdef DEBUG_PRINT
+  if (ret_val == 1) {
+    Serial.println("DEBUG: Write phone number success");
+  }
+  else {
+    Serial.print("DEBUG: Write phone number failed with ");
+    Serial.println(ret_val);
+  }
+#endif
+
   return (ret_val);
 }
 
@@ -2354,7 +2282,6 @@ char GSM::GetDateTime(char *date_time)
         strcpy(date_time, (char *)(p_char1));
       }
       break;
-      
   }
 
   SetCommLineStatus(CLS_FREE);
@@ -2366,21 +2293,14 @@ Function to enable or disable echo
 Echo(1)   enable echo modems
 Echo(0)   disable echo mode
 **********************************************************/
-
-
-
 void GSM::Echo(byte state)
 {
-	if (state == 0 or state == 1)
-	{
-	  SetCommLineStatus(CLS_ATCMD);
-	  #ifdef DEBUG_PRINT
-		DebugPrint("DEBUG Echo\r\n",1);
-	  #endif
-	  Serial.print(F("ATE"));
-	  Serial.print((int)state);    
-	  Serial.print('\r');
-	  delay(500);
-	  SetCommLineStatus(CLS_FREE);
-	}
+  if (state == 0 or state == 1) {
+    SetCommLineStatus(CLS_ATCMD);
+    Serial.print(F("ATE"));
+    Serial.print((int)state);
+    Serial.println();
+    delay(500);
+    SetCommLineStatus(CLS_FREE);
+  }
 }

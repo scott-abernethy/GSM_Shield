@@ -149,54 +149,33 @@ class GSM
   public:
     byte comm_buf[COMM_BUF_LEN+1];  // communication buffer +1 for 0x00 termination
 
-    // library version
     int LibVer(void);
-    // constructor
     GSM(void);
-    // serial line initialization
-    //void InitSerLine(long baud_rate);
-    // set comm. line status
+    void InitSerLine();
     inline void SetCommLineStatus(byte new_status) {comm_line_status = new_status;};
-    // get comm. line status
     inline byte GetCommLineStatus(void) {return comm_line_status;};
 
-
-    // turns on GSM module
-    void TurnOn(long baud_rate);
-    // sends some initialization parameters
+    void ModeGSM(void);
+    void TurnOn(void);
     void InitParam (byte group);
-    // enables DTMF decoder
     //void EnableDTMF(void);
-    // gets DTMF value
     //byte GetDTMFSignal(void);
-    // turns off/on the speaker
     void SetSpeaker(byte off_on);
-    // checks if module is registered in the GSM network
-    // must be called regularly
-    byte CheckRegistration(void);
-    // returns registration state
+    byte CheckRegistration(void); // must be called regularly
     byte IsRegistered(void);
-    // returns whether complete initialization was made
     byte IsInitialized(void);
-    // finds out the status of call
     byte CallStatus(void);
     byte CallStatusWithAuth(char *phone_number,
                             byte first_authorized_pos, byte last_authorized_pos);
-    // picks up an incoming call
     void PickUp(void);
-    // hangs up an incomming call
     void HangUp(void);
-    // calls the specific number
     void Call(char *number_string);
-    // makes a call to the number stored at the specified SIM position
     void Call(int sim_position);
 
-    // Speaker volume methods - set, increase, decrease
     char SetSpeakerVolume(byte speaker_volume);
     char IncSpeakerVolume(void);
     char DecSpeakerVolume(void);
 
-    // sends DTMF signal
     char SendDTMFSignal(byte dtmf_tone);
 
     // User button methods
@@ -204,7 +183,6 @@ class GSM
     inline void DisableUserButton(void) {module_status &= ~STATUS_USER_BUTTON_ENABLE;};
     inline void EnableUserButton(void) {module_status |= STATUS_USER_BUTTON_ENABLE;};
     byte IsUserButtonPushed(void);  
-
 
     // SMS's methods 
     char SendSMS(char *number_str, char *message_str);
@@ -219,8 +197,9 @@ class GSM
     // Phonebook's methods
     char GetPhoneNumber(byte position, char *phone_number);
     char WritePhoneNumber(byte position, char *phone_number);
-	char DelPhoneNumber(byte position);
+    char DelPhoneNumber(byte position);
     char ComparePhoneNumber(byte position, char *phone_number);
+
     // Date time
     char GetDateTime(char *date_time);
 
@@ -243,7 +222,6 @@ class GSM
 	
 	//echo
 	void Echo(byte state);
-
 
     // debug methods
 
