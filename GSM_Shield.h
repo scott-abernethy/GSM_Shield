@@ -92,7 +92,6 @@ enum rx_state_enum
   RX_LAST_ITEM
 };
 
-
 enum at_resp_enum 
 {
   AT_RESP_ERR_NO_RESP = -1,   // nothing received
@@ -100,6 +99,11 @@ enum at_resp_enum
   AT_RESP_OK = 1,             // response_string was included in the response
 
   AT_RESP_LAST_ITEM
+};
+
+enum ready_enum {
+  READY_NO = 0,
+  READY_YES
 };
 
 enum registration_ret_val_enum 
@@ -164,6 +168,7 @@ class GSM
     void ModeGSM(void);
     void TurnOn(void);
     void InitParam (byte group);
+    byte Ready(void);
     //void EnableDTMF(void);
     //byte GetDTMFSignal(void);
     byte GetICCID(char *id_string);
@@ -172,7 +177,7 @@ class GSM
     byte IsRegistered(void);
     byte IsInitialized(void);
     byte CallStatus(void);
-    byte CallStatusWithAuth(char *phone_number,
+    byte CallStatusWithAuth(char *phone_number, byte &fav,
                             byte first_authorized_pos, byte last_authorized_pos);
     void PickUp(void);
     void HangUp(void);

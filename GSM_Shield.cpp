@@ -626,6 +626,15 @@ void GSM::TurnOn(void)
 //Serial.println("AT+COPS?"); // Network operators read command -- +COPS: 0,0,"2degrees"
 //delay(1000);
 
+byte GSM::Ready() {
+  if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 500, 50, F("OK"), 1)) {
+    return READY_YES;
+  }
+  else {
+    return READY_NO;
+  }
+}
+
 void GSM::ReadBuffer(char *into, int offset, int length) {
   byte *p_start;
   byte *p_end;
@@ -924,7 +933,7 @@ return:
       CALL_NO_RESPONSE            - no response to the AT command 
       CALL_COMM_LINE_BUSY         - comm line is not free
 **********************************************************/
-byte GSM::CallStatusWithAuth(char *phone_number,
+byte GSM::CallStatusWithAuth(char *phone_number, byte &fav,
                              byte first_authorized_pos, byte last_authorized_pos)
 {
   byte ret_val = CALL_NONE;
@@ -1041,6 +1050,7 @@ byte GSM::CallStatusWithAuth(char *phone_number,
               // phone numbers are identical
               // authorization is OK
               // ---------------------------
+              fav = i;
               if (ret_val == CALL_INCOM_VOICE_NOT_AUTH) ret_val = CALL_INCOM_VOICE_AUTH;
               else ret_val = CALL_INCOM_DATA_AUTH;
               break;  // and finish authorization
@@ -2372,7 +2382,6 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
 
   SendATCmdWaitResp(F("AT+SAPBR=2,1"), 900, 900, F("OK"), 5); // query bearer
   if (IsStringReceived(F("+SAPBR: 1,1"))) {
-    Serial.println("Bearer is open");
 
       SendATCmdWaitResp(F("AT+HTTPINIT"), 900, 500, F("OK"), 5);
       SendATCmdWaitResp(F("AT+HTTPPARA=\"CID\",\"1\""), 900, 500, F("OK"), 5);
@@ -2381,13 +2390,31 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
       Serial.print(url);
       Serial.println(F("\""));
       WaitResp(900, 500, F("OK"));
-      SendATCmdWaitResp(op, 1500, 500, F("OK"), 2); //now GET action , or 1 for POST , or 2 for HEAD
+
+      // GET or POST (or HEAD)
+      SendATCmdWaitResp(op, 1500, 500, F("OK"), 2);
+
+      // Wait for +HTTPACTION:<op>,200,<bytes>
       if (RX_FINISHED_STR_RECV == WaitResp(20000, 500, respcode)) {
-        // TODO get the bytes length from the previous response, rather than just getting 1000 bytes
-        if (AT_RESP_OK == SendATCmdWaitResp(F("AT+HTTPREAD=0,1000"), 1500, 500, F("OK"), 2)) {
+        
+        // +HTTPACTION:0,200,5 --> get, ok, 5 bytes of data
+        char *p_start;
+        char *p_end;
+        int length = 0;
+        // Get bytes to read
+        p_start = strchr((char *)(comm_buf), ':');
+        p_start = strchr(p_start, ',');
+        p_start = strchr(p_start, ',');
+        if (p_start != NULL) {
+          length = atoi(p_start+1);
+        }
+
+        // Read response
+        Serial.print(F("AT+HTTPREAD=0,"));
+        Serial.println(length);
+        
+        if (RX_FINISHED_STR_RECV == WaitResp(1500, 500, F("OK"))) {
           // <CR><LF>+HTTPREAD:5<CR><LF>DATAHERE<CR><LF>OK
-          char *p_start;
-          char *p_end;
 
           p_start = strchr((char *)(comm_buf), ':');
           p_start = strchr((char *)(p_start), 0x0d);
@@ -2395,10 +2422,6 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
           p_end = strchr((char *)(p_start), 0x0d);
           *p_end = 0;
           strcpy(result, (char *)(p_start));
-
-          /* Serial.print("<<"); */
-          /* Serial.print(result); */
-          /* Serial.println(">>"); */
 
           res_code = HTTP_OK;
         }
@@ -2413,5 +2436,6 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
     }
 
     //SendATCmdWaitResp(F("AT+SAPBR=0,1"), 900, 500, F("OK"), 5); // close bearer
+    
     return res_code;
 }
