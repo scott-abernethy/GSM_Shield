@@ -61,6 +61,13 @@
 #define STATUS_REGISTERED           2
 #define STATUS_USER_BUTTON_ENABLE   4
 
+#define DEG_TO_RAD 0.017453292519943295769236907684886 // or, pi div 180
+#define EARTH_MEAN_RADIUS 6372797.560856 // metres
+
+// return codes
+#define GEN_FAILURE 0
+#define GEN_SUCCESS 1
+
 // SMS type 
 // use by method IsSMSPresent()
 enum sms_type_enum
@@ -153,6 +160,10 @@ enum httpget_ret_val_enum {
   HTTP_LAST_ITEM
 };
 
+struct position_t {
+  double lat;
+  double lon;
+};
 
 class GSM
 {
@@ -165,7 +176,9 @@ class GSM
     inline void SetCommLineStatus(byte new_status) {comm_line_status = new_status;};
     inline byte GetCommLineStatus(void) {return comm_line_status;};
 
+    void ModeInit(void);
     void ModeGSM(void);
+    void ModeGPS(void);
     void TurnOn(void);
     void InitParam (byte group);
     byte Ready(void);
@@ -235,9 +248,18 @@ class GSM
     //echo
     void Echo(byte state);
 
+    // data
     void SetupGPRS(void);
     byte HttpGet(const char *url, char *result);
     byte HttpPost(const char *urlp, char *result);
+
+    // gps
+    void InitGPS(void);
+    void StartGPS(void);
+    void StopGPS(void);
+    byte CheckLocation(position_t& loc);
+    double EarthRadiansBetween(const position_t& from, const position_t& to);
+    double DistanceBetween(const position_t& from, const position_t& to);
 
     // debug methods
 
@@ -272,5 +294,7 @@ class GSM
     char InitSMSMemory(void);
 
     byte HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper *respcode, const char *url, char *result);
+
+    double LocInDegrees(char* input);
 };
 #endif

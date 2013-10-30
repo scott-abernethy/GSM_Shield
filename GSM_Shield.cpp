@@ -382,15 +382,11 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout)
 
 #ifdef DEBUG_GSMRX
   if (status == RX_FINISHED){
-    Serial.print("DEBUG: << ");
     for (int i=0; i<comm_buf_len; i++){
       char c = comm_buf[i];
       Serial.print(c);
     }
     Serial.println();
-  }
-  else {
-    Serial.println("DEBUG: <<TIMEOUT");
   }
 #endif
 
@@ -427,15 +423,11 @@ byte GSM::WaitResp(uint16_t start_comm_tmout, uint16_t max_interchar_tmout,
 
 #ifdef DEBUG_GSMRX
   if (status == RX_FINISHED){
-    Serial.print("DEBUG: << ");
     for (int i=0; i<comm_buf_len; i++){
       char c = comm_buf[i];
       Serial.print(c);
     }
     Serial.println();
-  }
-  else {
-    Serial.println("DEBUG: <<TIMEOUT");
   }
 #endif
 
@@ -525,7 +517,7 @@ byte GSM::IsInitialized(void)
   return (module_status & STATUS_INITIALIZED);
 }
 
-void GSM::ModeGSM(void) {
+void GSM::ModeInit(void) {
   // Init driver pins
   pinMode(3, OUTPUT);
   pinMode(4, OUTPUT);
@@ -557,6 +549,38 @@ void GSM::ModeGSM(void) {
   delay(5000);
 }
 
+void GSM::ModeGSM(void) {
+
+  // UART OFF
+  digitalWrite(3, HIGH);
+  digitalWrite(4, HIGH);
+
+  delay(50);
+
+  // GSM UART
+  digitalWrite(3, LOW);
+
+  delay(50);
+
+  Echo(0);
+}
+
+void GSM::ModeGPS(void) {
+
+  // UART OFF
+  digitalWrite(3, HIGH);
+  digitalWrite(4, HIGH);
+
+  delay(50);
+
+  // GPS UART
+  digitalWrite(4, LOW);
+
+  delay(50);
+
+  Echo(0);
+}
+
 /**********************************************************
   Checks if the GSM module is responding 
   to the AT command
@@ -565,7 +589,7 @@ void GSM::ModeGSM(void) {
 **********************************************************/
 void GSM::TurnOn(void)
 {
-  ModeGSM();
+  ModeInit();
 
   SetCommLineStatus(CLS_ATCMD);
   if (AT_RESP_ERR_NO_RESP == SendATCmdWaitResp(F("AT"), 900, 200, F("OK"), 5)) {
@@ -576,7 +600,7 @@ void GSM::TurnOn(void)
     Serial.println("DEBUG: start the module");
 #endif
 
-    ModeGSM();
+    ModeInit();
   }
   else {
 #ifdef DEBUG_PRINT
@@ -627,11 +651,11 @@ void GSM::TurnOn(void)
 //delay(1000);
 
 byte GSM::Ready() {
-  if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 500, 50, F("OK"), 1)) {
-    return READY_YES;
+  if (AT_RESP_OK == SendATCmdWaitResp(F("AT"), 200, 50, F("OK"), 2)) {
+    return GEN_SUCCESS;
   }
   else {
-    return READY_NO;
+    return GEN_FAILURE;
   }
 }
 
@@ -648,7 +672,7 @@ void GSM::ReadBuffer(char *into, int offset, int length) {
 
 // eg 4564243333334414892F
 byte GSM::GetICCID(char *id_string) {
-  byte ret_val = -1;
+  byte ret_code = GEN_FAILURE;
   id_string[0] = 0x00;
   id_string[20] = 0x00;
 
@@ -657,14 +681,12 @@ byte GSM::GetICCID(char *id_string) {
 
   if (AT_RESP_OK == SendATCmdWaitResp(F("AT+CCID"), 500, 50, F("OK"), 5)) {
     ReadBuffer(id_string, 2, 20);
-    ret_val = 1;
-  }
-  else {
+    ret_code = GEN_SUCCESS;
   }
 
   SetCommLineStatus(CLS_FREE);
 
-  return ret_val;
+  return ret_code;
 }
 
 /**********************************************************
@@ -2396,7 +2418,6 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
 
       // Wait for +HTTPACTION:<op>,200,<bytes>
       if (RX_FINISHED_STR_RECV == WaitResp(20000, 500, respcode)) {
-        
         // +HTTPACTION:0,200,5 --> get, ok, 5 bytes of data
         char *p_start;
         char *p_end;
@@ -2412,7 +2433,7 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
         // Read response
         Serial.print(F("AT+HTTPREAD=0,"));
         Serial.println(length);
-        
+
         if (RX_FINISHED_STR_RECV == WaitResp(1500, 500, F("OK"))) {
           // <CR><LF>+HTTPREAD:5<CR><LF>DATAHERE<CR><LF>OK
 
@@ -2438,4 +2459,160 @@ byte GSM::HttpOperation(const __FlashStringHelper *op, const __FlashStringHelper
     //SendATCmdWaitResp(F("AT+SAPBR=0,1"), 900, 500, F("OK"), 5); // close bearer
     
     return res_code;
+}
+
+
+/*********************************************************
+GPS Section
+TODO Break this file into three parts, (1) Common serial support, (2) GSM/GPRS, and (3) GPS.
+*********************************************************/
+
+void GSM::InitGPS(){
+  Ready();
+  SendATCmdWaitResp(F("AT+CGPSIPR=9600"), 900, 100, F("OK"), 5); // set the baud rate
+  SendATCmdWaitResp(F("AT+CGPSOUT=0"), 900, 100, F("OK"), 5); // nmea output off
+  SendATCmdWaitResp(F("AT+CGPSPWR=1"), 900, 100, F("OK"), 5); // turn on GPS power supply
+  SendATCmdWaitResp(F("AT+CGPSRST=0"), 900, 100, F("OK"), 5); // cold reset GPS (just do this once)
+  SendATCmdWaitResp(F("AT+CGPSPWR=0"), 900, 100, F("OK"), 5); // turn off GPS power supply
+}
+
+void GSM::StartGPS(){
+  Ready();
+  SendATCmdWaitResp(F("AT+CGPSPWR=1"), 900, 100, F("OK"), 5); // turn on GPS power supply
+  // TODO is the reset required?
+  SendATCmdWaitResp(F("AT+CGPSRST=1"), 900, 100, F("OK"), 5); // reset GPS in autonomy mode
+}
+
+void GSM::StopGPS(){
+  Ready();
+  SendATCmdWaitResp(F("AT+CGPSPWR=0"), 900, 100, F("OK"), 5); // turn off
+}
+
+byte GSM::CheckLocation(position_t& loc) {
+
+  byte retcode = GEN_FAILURE;
+  char latitude[15];
+  char longitude[15];
+
+  if (AT_RESP_OK == SendATCmdWaitResp(F("AT+CGPSSTATUS?"), 900, 50, F("OK"), 2)) {
+    if (IsStringReceived(F("+CGPSSTATUS: Location 2D Fix")) ||
+        IsStringReceived(F("+CGPSSTATUS: Location 3D Fix"))) {
+
+      if (AT_RESP_OK == SendATCmdWaitResp(F("AT+CGPSINF=0"), 900, 50, F("OK"), 2)) {
+        // Have location in form: 
+        // <CR><LF>0,17446.647913,-4117.068521,0.082149,20131025231125.000,534,5,0.000000,0.000000<CR><LF>OK
+        // mode, long, lat, alt, utc time, ttff, num, speed, course -- where 'ttff' = time to first fix (seconds)
+
+        strtok((char *)(comm_buf), ",");
+        strcpy(longitude,strtok(NULL, ",")); // Gets longitude
+        strcpy(latitude,strtok(NULL, ",")); // Gets latitude
+
+        loc.lat = LocInDegrees(latitude);
+        loc.lon = LocInDegrees(longitude);
+
+        retcode = GEN_SUCCESS;
+      }
+    }
+  }
+  return retcode;
+}
+
+/**
+ * E.g.
+ * Lat -4117.015786 --> -41.283596
+ * Lng 17446.508384 --> 174.775146
+ */
+double GSM::LocInDegrees(char* input) {
+  char *p;
+  float deg;
+  float minutes;
+  boolean neg = false;
+
+  char aux[10];
+
+  p = input;
+  if (input[0] == '-') {
+    neg = true;
+    p = p+1;
+  }
+
+  deg = atof(strcpy(aux, strtok(p, ".")));
+  minutes = atof(strcpy(aux, strtok(NULL, '\0')));
+  minutes /= 1000000;
+
+  if (deg < 100) {
+    minutes += deg;
+    deg = 0;
+  }
+  else {
+    minutes += int(deg) % 100;
+    deg = int(deg) / 100;
+  }
+
+  deg = deg + minutes/60;
+
+  if (neg == true) {
+    deg *= -1.0;
+  }
+
+  neg = false;
+
+  if ( deg < 0 ) {
+    neg = true;
+    deg *= -1;
+  }
+
+  int int_part[10];
+  int f;
+  long num_part = (long)deg;
+  float decimal_part = (deg - (int)deg);
+  int size = 0;
+
+  while (1) {
+    size = size + 1;
+    f = num_part % 10;
+    num_part = num_part / 10;
+    int_part[size-1] = f;
+    if (num_part == 0) {
+      break;
+    }
+  }
+
+  int index=0;
+  if (neg) {
+    index++;
+    input[0] = '-';
+  }
+  for (int i = size-1; i >= 0; i--) {
+    input[index] = int_part[i] + '0'; 
+    index++;
+  }
+
+  input[index]='.';
+  index++;
+
+  for (int i = 1; i <= 6 ; i++) {
+    decimal_part = decimal_part * 10;
+    f = (long)decimal_part;
+    decimal_part = decimal_part - f;
+    input[index] = char(f) + 48;
+    index++;
+  }
+  input[index] = '\0';
+  return atof(input);
+}
+
+/**
+ * http://en.wikipedia.org/wiki/Law_of_haversines
+ */
+double GSM::EarthRadiansBetween(const position_t& from, const position_t& to) {
+  double lat_radians = (from.lat - to.lat) * DEG_TO_RAD;
+  double lon_radians = (from.lon - to.lon) * DEG_TO_RAD;
+  double lat_haversine = pow(sin(lat_radians * 0.5), 2);
+  double lon_haversine = pow(sin(lon_radians * 0.5), 2);
+  return 2.0 * asin(sqrt(lat_haversine + (cos(from.lat * DEG_TO_RAD) * cos(to.lat * DEG_TO_RAD) * lon_haversine)));
+}
+
+double GSM::DistanceBetween(const position_t& from, const position_t& to) {
+  return EarthRadiansBetween(from, to) * EARTH_MEAN_RADIUS;
 }
