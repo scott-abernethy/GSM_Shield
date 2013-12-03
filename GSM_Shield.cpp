@@ -2469,11 +2469,12 @@ TODO Break this file into three parts, (1) Common serial support, (2) GSM/GPRS, 
 
 void GSM::InitGPS(){
   Ready();
-  SendATCmdWaitResp(F("AT+CGPSIPR=9600"), 900, 100, F("OK"), 5); // set the baud rate
-  SendATCmdWaitResp(F("AT+CGPSOUT=0"), 900, 100, F("OK"), 5); // nmea output off
-  SendATCmdWaitResp(F("AT+CGPSPWR=1"), 900, 100, F("OK"), 5); // turn on GPS power supply
-  SendATCmdWaitResp(F("AT+CGPSRST=0"), 900, 100, F("OK"), 5); // cold reset GPS (just do this once)
-  SendATCmdWaitResp(F("AT+CGPSPWR=0"), 900, 100, F("OK"), 5); // turn off GPS power supply
+  SendATCmdWaitResp(F("AT+CGPSIPR=9600"), 1200, 100, F("OK"), 5); // set the baud rate
+  SendATCmdWaitResp(F("AT+CGPSOUT=0"), 1200, 100, F("OK"), 5); // nmea output off
+  SendATCmdWaitResp(F("AT+CGPSPWR=1"), 1200, 100, F("OK"), 5); // turn on GPS power supply
+  SendATCmdWaitResp(F("AT+CGPSRST=0"), 1200, 100, F("OK"), 5); // cold reset GPS (just do this once)
+  SendATCmdWaitResp(F("AT+CGPSPWR=0"), 2000, 100, F("OK"), 5); // turn off GPS power supply
+  Ready();
 }
 
 void GSM::StartGPS(){
