@@ -1,0 +1,21 @@
+sqrl, the squirt-library
+Copyright (c) 2013 www.hwkitchen.com and contributors @jgarland79, @harlequin-tech, 
+and @scott-abernethy.
+
+Released under the Creative Commons Attribution-Share Alike 3.0 License.
+
+sqrl is free software: you can redistribute it and/or modify it under the 
+terms of the Creative Commons Attribution-Share Alike 3.0 License.
+
+You should have received a copy of the Creative Commons Attribution-Share 
+Alike 3.0 License along with sqrl. If not, see 
+http://www.creativecommons.org/licenses/by-sa/3.0/.
+
+This library is derived from the GSM_Shield library 
+by [Futura Elettronica](http://www.futurashop.it), 
+originally by [Hwkitchen](http://www.hwkitchen.com).
+Licensed under the original license, as required.
+
+Modifications and contributions by @jgarland79, @harlequin-tech, 
+and @scott-abernethy.
+
