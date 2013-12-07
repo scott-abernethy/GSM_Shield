@@ -593,22 +593,12 @@ byte GSM::CallStatusWithAuth(char *phone_number, byte &fav,
   byte ret_val = CALL_NONE;
   byte search_phone_num = 0;
   byte i;
-  byte status;
   char *p_char; 
   char *p_char1;
 
   phone_number[0] = 0x00;  // no phonr number so far
   if (CLS_FREE != at.GetCommLineStatus()) return (CALL_COMM_LINE_BUSY);
   at.SetCommLineStatus(CLS_ATCMD);
-  status = at.SendATCmdWaitResp(F("AT+CLCC"), 5000, 1500, F("OK\r\n"), 1);
-
-  // there is either NO call:
-  // <CR><LF>OK<CR><LF>
-
-  // or there is at least 1 call
-  // +CLCC: 1,1,4,0,0,"+420XXXXXXXXX",145<CR><LF>
-  // <CR><LF>OK<CR><LF>
-
 
   // TODO if this is important, make it lower level:
   // generate tmout 30msec. before next AT command
@@ -626,19 +616,22 @@ byte GSM::CallStatusWithAuth(char *phone_number, byte &fav,
     }
     else if(at.IsStringReceived(F("+CLCC: 1,1,4,1,0"))) {
       // incoming DATA call - not authorized so far
-      // ------------------------------------------
       search_phone_num = 1;
       ret_val = CALL_INCOM_DATA_NOT_AUTH;
     }
+    else if (at.IsStringReceived(F("+CLCC: 1,0,2,0,0")) || 
+             at.IsStringReceived(F("+CLCC: 1,0,3,0,0"))) { 
+      // dialing (2) or alerting (3) VOICE call - GSM is caller
+      search_phone_num = 0;
+      ret_val = CALL_OUT_VOICE;
+    }
     else if(at.IsStringReceived(F("+CLCC: 1,0,0,0,0"))) { 
       // active VOICE call - GSM is caller
-      // ----------------------------------
       search_phone_num = 1;
       ret_val = CALL_ACTIVE_VOICE;
     }
     else if(at.IsStringReceived(F("+CLCC: 1,1,0,0,0"))) { 
       // active VOICE call - GSM is listener
-      // -----------------------------------
       search_phone_num = 1;
       ret_val = CALL_ACTIVE_VOICE;
     }
